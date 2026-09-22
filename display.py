@@ -9,6 +9,7 @@ pg.init()
 pg.font.init()
 
 comicSans = pg.font.SysFont("Comic Sans MS", 18)
+smallerText = pg.font.SysFont("Comic Sans MS", 16)
 
 displayInfo = pg.display.Info()
 WIDTH, HEIGHT = 800, 600
@@ -21,6 +22,11 @@ pg.display.set_caption("Study Tools")
 #pg.display.set_icon(icon)
 
 mainWindow = pg.Rect(20, 50, WIDTH - 40, HEIGHT - 70)
+
+#constants
+txtH = 23
+weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+times = [f"{i}h" for i in range(8, 21)]
 
 def toggleFullscreen():
     if pg.display.get_window_size() == (WIDTH, HEIGHT):
@@ -50,11 +56,15 @@ class Button():
 
 buttonsList = []
 menuButtons = []
+timeButtons = []
+eventButtons = []
 
-buttonsList.append(Button(20, 10, 150, 30, "Fullscreen (F11)", lambda: toggleFullscreen()))
+buttonsList.append(Button(20, 10, 150, 30, "Fullscreen", lambda: toggleFullscreen()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30, "Timetable", lambda: launchTimetable()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2, 150, 30, "To Do List", lambda: launchToDoList()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30, "Quizz", lambda: launchQuizz()))
+timeButtons.append(Button(180, 10, 150, 30, "Add Event", lambda: launchAddEvent()))
+eventButtons.append(Button(180, 10, 100, 30, "Back", lambda: launchTimetable()))
 
 running = True
 
@@ -81,8 +91,35 @@ def timeTable():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in buttonsList:
+                for button in buttonsList + timeButtons:
                     button.checkClick(event.pos)
+
+    for i, day in enumerate(weekDays):
+        weekText = smallerText.render(day, True, (255, 255, 255))
+        screen.blit(weekText, (120 + 95 * i, 85))
+        pg.draw.line(screen, (255, 255, 255), (90 + 95*i, 122), (90 + 95*i, 529))
+    pg.draw.line(screen, (255, 255, 255), (85 + 95*7, 122), (85 + 95*7, 529))
+    for i, time in enumerate(times):
+        timeText = smallerText.render(time, True, (255, 255, 255))
+        screen.blit(timeText, (50, 110 + 34*i))
+        if i%2 == 0:
+            pg.draw.line(screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (750, 110 + 34*i + txtH//2))
+
+    for button in timeButtons:
+        button.draw()
+
+def addEvent():
+    global running
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            running = False
+        elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                for button in buttonsList + eventButtons:
+                    button.checkClick(event.pos)
+
+    for button in eventButtons:
+        button.draw()
 
 def toDoList():
     global running
@@ -108,7 +145,12 @@ runningFunc = lambda: mainMenu()
 
 def launchTimetable():
     global runningFunc
+    timetableData = data.getTimetableData()
     runningFunc = lambda: timeTable()
+
+def launchAddEvent():
+    global runningFunc
+    runningFunc = lambda: addEvent()
 
 def launchToDoList():
     global runningFunc
