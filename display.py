@@ -38,6 +38,27 @@ def toggleFullscreen():
         mainWindow.width = WIDTH - 40
         mainWindow.height = HEIGHT - 70
 
+class Element():
+    def __init__(self, rect, color = (255, 255, 255), hollow = 0):
+        self.rect = rect
+        self.color = color
+        self.hollow = hollow
+
+    def draw(self):
+        pg.draw.rect(screen, self.color, self.rect, self.hollow)
+
+class TimetableElement(Element):
+    def __init__(self, rect, label, color = (255, 255, 255)):
+        super().__init__(rect, color, 0) 
+        self.label = label
+        self.labelText = smallerText.render(label, True, (0, 0, 0))
+        self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
+        self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
+
+    def draw(self):
+        pg.draw.rect(screen, self.color, self.rect, self.hollow)
+        screen.blit(self.labelText, (self.xText, self.yText))
+
 class Button():
     def __init__(self, x, y, width, height, text, onClick):
         self.rect = pg.Rect(x, y, width, height)
@@ -54,10 +75,37 @@ class Button():
         if self.rect.collidepoint(pos):
             self.onClick()
 
+class DropDown(Button):
+    def __init__(self, x, y, width, height, text, buttons):
+        super().__init__(self, x, y, width, height, text, lambda: self.toggleButtons())
+        self.buttons = buttons
+        self.value = None
+        self.buttonsVisible = False
+
+        for button in self.buttons:
+            button.parent = self
+            button.onClick = lambda: self.setValue(button.text)
+
+    def setValue(self, value):
+        self.value = value
+
+    def toggleButtons(self):
+        if not self.buttonsVisible:
+            for button in self.buttons:
+                buttonsList.append(button)
+        else:
+            for i in range(len(buttonsList)-1, -1, -1):
+                button = buttonsList[i]
+                if button.parent == self:
+                    buttonsList.pop(i)
+
+
 buttonsList = []
 menuButtons = []
 timeButtons = []
 eventButtons = []
+
+elements = []
 
 buttonsList.append(Button(20, 10, 150, 30, "Fullscreen", lambda: toggleFullscreen()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30, "Timetable", lambda: launchTimetable()))
@@ -94,16 +142,19 @@ def timeTable():
                 for button in buttonsList + timeButtons:
                     button.checkClick(event.pos)
 
+    for element in elements:
+            element.draw()
+
     for i, day in enumerate(weekDays):
         weekText = smallerText.render(day, True, (255, 255, 255))
         screen.blit(weekText, (120 + 95 * i, 85))
-        pg.draw.line(screen, (255, 255, 255), (90 + 95*i, 122), (90 + 95*i, 529))
-    pg.draw.line(screen, (255, 255, 255), (85 + 95*7, 122), (85 + 95*7, 529))
+        pg.draw.line(screen, (255, 255, 255), (90 + 95*i, 122), (90 + 95*i, 529), 2)
+    pg.draw.line(screen, (255, 255, 255), (85 + 95*7, 122), (85 + 95*7, 529), 2)
     for i, time in enumerate(times):
         timeText = smallerText.render(time, True, (255, 255, 255))
         screen.blit(timeText, (50, 110 + 34*i))
         if i%2 == 0:
-            pg.draw.line(screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (750, 110 + 34*i + txtH//2))
+            pg.draw.line(screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (750, 110 + 34*i + txtH//2), 2)
 
     for button in timeButtons:
         button.draw()
@@ -146,6 +197,11 @@ runningFunc = lambda: mainMenu()
 def launchTimetable():
     global runningFunc
     timetableData = data.getTimetableData()
+    for i, day in enumerate(timetableData):
+        for event in day:
+            eventRect = pg.Rect(90 + 95*i, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
+            eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
+            elements.append(eventObject)
     runningFunc = lambda: timeTable()
 
 def launchAddEvent():
