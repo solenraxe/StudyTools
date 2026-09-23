@@ -10,6 +10,7 @@ pg.font.init()
 
 comicSans = pg.font.SysFont("Comic Sans MS", 18)
 smallerText = pg.font.SysFont("Comic Sans MS", 16)
+dropDownText = pg.font.SysFont("Comic Sans MS", 10)
 
 displayInfo = pg.display.Info()
 WIDTH, HEIGHT = 800, 600
@@ -48,10 +49,10 @@ class Element():
         pg.draw.rect(screen, self.color, self.rect, self.hollow)
 
 class TimetableElement(Element):
-    def __init__(self, rect, label, color = (255, 255, 255)):
+    def __init__(self, rect, label, color = (255, 255, 255), font = smallerText):
         super().__init__(rect, color, 0) 
         self.label = label
-        self.labelText = smallerText.render(label, True, (0, 0, 0))
+        self.labelText = font.render(label, True, (0, 0, 0))
         self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
         self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
 
@@ -60,14 +61,15 @@ class TimetableElement(Element):
         screen.blit(self.labelText, (self.xText, self.yText))
 
 class Button():
-    def __init__(self, x, y, width, height, text, onClick):
+    def __init__(self, x, y, width, height, text, onClick = None, font = comicSans):
         self.rect = pg.Rect(x, y, width, height)
         self.text = text
         self.onClick = onClick
+        self.font = font
 
     def draw(self):
         pg.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=5)
-        textSurface = comicSans.render(self.text, True, (255, 255, 255))
+        textSurface = self.font.render(self.text, True, (255, 255, 255))
         textRect = textSurface.get_rect(center=self.rect.center)
         screen.blit(textSurface, textRect)
 
@@ -77,35 +79,41 @@ class Button():
 
 class DropDown(Button):
     def __init__(self, x, y, width, height, text, buttons):
-        super().__init__(self, x, y, width, height, text, lambda: self.toggleButtons())
+        super().__init__(x, y, width, height, text, lambda: self.toggleButtons())
         self.buttons = buttons
         self.value = None
         self.buttonsVisible = False
 
         for button in self.buttons:
             button.parent = self
-            button.onClick = lambda: self.setValue(button.text)
+            button.font = dropDownText
+            button.onClick = lambda v = button.text: self.setValue(v)
 
     def setValue(self, value):
         self.value = value
+        self.text = value
+        self.toggleButtons()
 
     def toggleButtons(self):
         if not self.buttonsVisible:
-            for button in self.buttons:
+            for i, button in enumerate(self.buttons):
+                button.rect.x = self.rect.x + self.rect.width//2 - button.rect.width//2
+                button.rect.y = self.rect.y + 32 + 20*i + self.rect.height//2 - button.rect.height//2
                 buttonsList.append(button)
+            self.buttonsVisible = True
         else:
             for i in range(len(buttonsList)-1, -1, -1):
                 button = buttonsList[i]
-                if button.parent == self:
+                if hasattr(button, 'parent') and button.parent == self:
                     buttonsList.pop(i)
+            self.buttonsVisible = False
 
+elements = []
 
 buttonsList = []
 menuButtons = []
 timeButtons = []
 eventButtons = []
-
-elements = []
 
 buttonsList.append(Button(20, 10, 150, 30, "Fullscreen", lambda: toggleFullscreen()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30, "Timetable", lambda: launchTimetable()))
@@ -113,6 +121,11 @@ menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2, 150, 30, "To Do List", lambd
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30, "Quizz", lambda: launchQuizz()))
 timeButtons.append(Button(180, 10, 150, 30, "Add Event", lambda: launchAddEvent()))
 eventButtons.append(Button(180, 10, 100, 30, "Back", lambda: launchTimetable()))
+
+timeSelection = DropDown(WIDTH//2 - 75, HEIGHT//2 - 15, 100, 30, "Time", [Button(0, 0, 75, 18, t) for t in times])
+daySelection = DropDown(WIDTH//2 + 100, HEIGHT//2 - 15, 100, 30, "Day", [Button(0, 0, 75, 18, d) for d in weekDays])
+eventButtons.append(timeSelection)
+eventButtons.append(daySelection)
 
 running = True
 
