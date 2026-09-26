@@ -26,4 +26,13 @@ with open(save_path, 'r') as f:
     data = json.load(f)
 
 def getTimetableData():
-    return data["Timetable"]
+    return data["Timetable"].copy()
+
+def deleteTempEvent(event):
+    for i in range(len(data["Timetable"]["Temporary"]) - 1, -1, -1):
+        ev = data["Timetable"]["Temporary"][i]
+        if ev == event:
+            data["Timetable"]["Temporary"].pop(i)
+
+    with open(save_path, 'w') as f:
+            json.dump(data, f, indent=4)

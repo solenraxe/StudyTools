@@ -58,17 +58,18 @@ def toggleFullscreen():
         mainWindow.height = HEIGHT - 70
 
 class Element():
-    def __init__(self, rect, color = (255, 255, 255), hollow = 0):
+    def __init__(self, rect, color = (255, 255, 255), hollow = 0, radius = 0):
         self.rect = rect
         self.color = color
         self.hollow = hollow
+        self.radius = radius
 
     def draw(self):
-        pg.draw.rect(screen, self.color, self.rect, self.hollow)
+        pg.draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
 
 class TimetableElement(Element):
     def __init__(self, rect, label, color = (255, 255, 255), font = smallerText):
-        super().__init__(rect, color, 0) 
+        super().__init__(rect, color) 
         self.label = label
         self.labelText = font.render(label, True, (0, 0, 0))
         self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
@@ -99,7 +100,7 @@ class DropDown(Button):
     def __init__(self, x, y, width, height, text, buttons):
         super().__init__(x, y, width, height, text, lambda: self.toggleButtons())
         self.buttons = buttons
-        self.value = None
+        self.value = buttons[0].text
         self.buttonsVisible = False
 
         for button in self.buttons:
@@ -126,7 +127,31 @@ class DropDown(Button):
                     buttonsList.pop(i)
             self.buttonsVisible = False
 
+class Selector(Button):
+    def __init__(self, x, y, width, height, text, options):
+        super().__init__(x, y, width, height, f"{text}: {options[0]}", lambda e = self: setFocus(e))
+        self.options = options
+        self.currentIndex = 0
+        self.baseText = text
+        self.value = options[0]
+
+    def changeOption(self, dir):
+        self.currentIndex = (self.currentIndex + 1*dir) % len(self.options)
+        self.value = self.options[self.currentIndex]
+        self.text = f"{self.baseText}: {self.value}"
+
+    def handleEvents(self, event):
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_UP:
+                self.changeOption(1)
+            elif event.key == pg.K_DOWN:
+                self.changeOption(-1)
+
 elements = []
+focusedElement = None
+def setFocus(elem):
+    global focusedElement
+    focusedElement = elem
 
 buttonsList = []
 menuButtons = []
@@ -140,7 +165,7 @@ menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30, "Quizz", lambd
 timeButtons.append(Button(180, 10, 150, 30, "Add Event", lambda: launchAddEvent()))
 eventButtons.append(Button(180, 10, 100, 30, "Back", lambda: launchTimetable()))
 
-timeSelection = DropDown(WIDTH//2 - 75, HEIGHT//2 - 15, 100, 30, "Time", [Button(0, 0, 75, 18, t) for t in times])
+timeSelection = Selector(WIDTH//2 - 75, HEIGHT//2 - 15, 100, 30, "Time", [t for t in times])
 daySelection = DropDown(WIDTH//2 + 100, HEIGHT//2 - 15, 100, 30, "Day", [Button(0, 0, 75, 18, d) for d in weekDays])
 eventButtons.append(timeSelection)
 eventButtons.append(daySelection)
@@ -193,6 +218,7 @@ def timeTable():
 def addEvent():
     global running
     for event in pg.event.get():
+        if focusedElement != None: focusedElement.handleEvents(event)
         if event.type == pg.QUIT:
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
@@ -235,6 +261,16 @@ def launchTimetable():
             eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
             eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
             elements.append(eventObject)
+    for event in timetableData["Temporary"]:
+        year, month, day = event["Date"]
+        dDate = (date(year, month, day) - monDate).days
+        if dDate < 0:
+            data.deleteTempEvent(event)
+        elif dDate < 7:
+            eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
+            eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
+            elements.append(eventObject)
+
     runningFunc = lambda: timeTable()
 
 def launchAddEvent():
