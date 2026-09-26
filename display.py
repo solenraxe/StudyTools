@@ -2,6 +2,7 @@ import pygame as pg
 import os
 from tkinter import filedialog as fd
 import pyperclip
+from datetime import date
 
 import data
 
@@ -28,6 +29,23 @@ mainWindow = pg.Rect(20, 50, WIDTH - 40, HEIGHT - 70)
 txtH = 23
 weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 times = [f"{i}h" for i in range(8, 21)]
+
+currentDate = date.today()
+weekDay = weekDays[currentDate.isoweekday()-1]
+
+monDay = currentDate.day - currentDate.isoweekday() + 1
+monMonth = currentDate.month
+monYear = currentDate.year
+if monDay < 1:
+    if monMonth != 1:
+        monthDays = (date(currentDate.year, currentDate.month, 1) - date(currentDate.year, currentDate.month-1, 1)).days
+        monMonth -= 1
+        monDay = monthDays + monDay
+    else:
+        monYear -= 1
+        monMonth = 12
+        monDay = 31 + monDay
+monDate = date(monYear, monMonth, monDay)
 
 def toggleFullscreen():
     if pg.display.get_window_size() == (WIDTH, HEIGHT):
@@ -210,9 +228,11 @@ runningFunc = lambda: mainMenu()
 def launchTimetable():
     global runningFunc
     timetableData = data.getTimetableData()
-    for i, day in enumerate(timetableData):
-        for event in day:
-            eventRect = pg.Rect(90 + 95*i, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
+    for event in timetableData["Repeated"]:
+        year, month, day = event["Added"]
+        dDate = (date(year, month, day) - monDate).days % event["Repeat"]
+        if 0 <= dDate < 7:
+            eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
             eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
             elements.append(eventObject)
     runningFunc = lambda: timeTable()
