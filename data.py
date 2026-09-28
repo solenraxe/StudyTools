@@ -1,5 +1,5 @@
-import json
 import sys, os
+import json
 
 def resource_path(relative_path):
     try:
@@ -17,9 +17,8 @@ def get_save_path():
 
 save_path = get_save_path()
 if not os.path.exists(save_path):
-    with open(save_path, 'w') as f:
-        with open(resource_path('data.json'), 'r') as default_f:
-            f.write(default_f.read())
+    with open(save_path, 'w') as f, open(resource_path('data.json'), 'r') as default_f:
+        f.write(default_f.read())
 
 data = {}
 with open(save_path, 'r') as f:
@@ -27,6 +26,13 @@ with open(save_path, 'r') as f:
 
 def getTimetableData():
     return data["Timetable"].copy()
+
+def addEvent(category, label, time, duration, date, color, repeat = None):
+    event = {"Label": label, "Time": time, "Duration": duration, "Color": color, "Date": date, "Repeat": repeat}
+    data["Timetable"][category].append(event)
+
+    with open(save_path, "w") as f:
+        json.dump(data, f, indent=4)
 
 def deleteTempEvent(event):
     for i in range(len(data["Timetable"]["Temporary"]) - 1, -1, -1):
