@@ -80,15 +80,16 @@ class TimetableElement(Element):
         screen.blit(self.labelText, (self.xText, self.yText))
 
 class Button():
-    def __init__(self, x, y, width, height, text, onClick = None, font = comicSans):
+    def __init__(self, x, y, width, height, text, onClick = None, font = comicSans, color = (255, 255, 255)):
         self.rect = pg.Rect(x, y, width, height)
         self.text = text
         self.onClick = onClick
         self.font = font
+        self.color = color
 
     def draw(self):
-        pg.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=5)
-        textSurface = self.font.render(self.text, True, (255, 255, 255))
+        pg.draw.rect(screen, self.color, self.rect, 2, border_radius=5)
+        textSurface = self.font.render(self.text, True, self.color)
         textRect = textSurface.get_rect(center=self.rect.center)
         screen.blit(textSurface, textRect)
 
@@ -151,7 +152,12 @@ elements = []
 focusedElement = None
 def setFocus(elem):
     global focusedElement
-    focusedElement = elem
+    if focusedElement != elem:
+        focusedElement = elem
+        elem.color = (255, 0, 0)
+    else:
+        focusedElement = None
+        elem.color = (255, 255, 255)
 
 buttonsList = []
 menuButtons = []
