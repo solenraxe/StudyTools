@@ -43,6 +43,9 @@ def substractDays(oDate, n):
     newDay = oDate.day - n + 1
     newMonth = oDate.month
     newYear = oDate.year
+    monthDays = 31
+    if newMonth != 12:
+        monthDays = (date(newYear, newMonth+1, 1) - date(newYear, newMonth, 1)).days
     if newDay < 1:
         if newMonth != 1:
             monthDays = (date(newYear, newMonth, 1) - date(newYear, newMonth-1, 1)).days
@@ -50,8 +53,16 @@ def substractDays(oDate, n):
             newDay += monthDays
         else:
             newYear -= 1
-            newMonth = 1
+            newMonth = 12
             newDay += 31
+    elif newDay > monthDays:
+        if newMonth != 12:
+            newMonth += 1
+            newDay -= monthDays
+        else:
+            newYear += 1
+            newMonth = 1
+            newDay -= monthDays
     return newDay, newMonth, newYear
 
 currentDate = date.today()
@@ -69,6 +80,13 @@ def toggleFullscreen():
         pg.display.set_mode((WIDTH, HEIGHT))
         mainWindow.width = WIDTH - 40
         mainWindow.height = HEIGHT - 70
+
+def changeMonDate(dir):
+    global monDay, monMonth, monYear, monDate
+    monDay, monMonth, monYear = substractDays(monDate, (-7+dir)*dir)
+    monDate = date(monYear, monMonth, monDay)
+
+    launchTimetable()
 
 class Element:
     def __init__(self, rect, color = (255, 255, 255), hollow = 0, radius = 0):
@@ -92,6 +110,9 @@ class TimetableElement(Element):
         pg.draw.rect(screen, self.color, self.rect, self.hollow)
         pg.draw.rect(screen, (255, 255, 255), self.rect, 2)
         screen.blit(self.labelText, (self.xText, self.yText))
+
+    def onClick(self):
+        pass
 
 class Button:
     def __init__(self, x, y, width, height, text, onClick = None, font = comicSans, color = (255, 255, 255)):
@@ -206,6 +227,8 @@ menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30, "Timetable", l
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2, 150, 30, "To Do List", lambda: launchToDoList()))
 menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30, "Quizz", lambda: launchQuizz()))
 timeButtons.append(Button(180, 10, 150, 30, "Add Event", lambda: launchAddEvent()))
+timeButtons.append(Button(340, 10, 50, 30, "<-", lambda: changeMonDate(-1)))
+timeButtons.append(Button(400, 10, 50, 30, "->", lambda: changeMonDate(1)))
 eventButtons.append(Button(180, 10, 100, 30, "Back", lambda: launchTimetable()))
 
 timeSelection = Selector(WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30, "Time: ", [t for t in times])
@@ -270,6 +293,8 @@ def timeTable():
         if i%2 == 0:
             pg.draw.line(screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (755, 110 + 34*i + txtH//2), 2)
 
+    screen.blit(comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
+
     for element in elements:
         element.draw()
     for button in timeButtons:
@@ -330,7 +355,8 @@ def quizz():
 runningFunc = lambda: mainMenu()
 
 def launchTimetable():
-    global runningFunc
+    global runningFunc, elements
+    elements = []
     timetableData = data.getTimetableData()
     for event in timetableData["Repeated"]:
         year, month, day = event["Date"]
