@@ -89,8 +89,8 @@ def changeMonDate(dir):
     launchTimetable()
 
 class Element:
-    def __init__(self, rect, color = (255, 255, 255), hollow = 0, radius = 0):
-        self.rect = rect
+    def __init__(self, coords, color = (255, 255, 255), hollow = 0, radius = 0):
+        self.rect = pg.Rect(coords[0], coords[1], coords[2], coords[3])
         self.color = color
         self.hollow = hollow
         self.radius = radius
@@ -98,32 +98,16 @@ class Element:
     def draw(self):
         pg.draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
 
-class TimetableElement(Element):
-    def __init__(self, rect, label, color = (255, 255, 255), font = smallerText):
-        super().__init__(rect, color)
-        self.label = label
-        self.labelText = font.render(label, True, (0, 0, 0))
-        self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
-        self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
-
-    def draw(self):
-        pg.draw.rect(screen, self.color, self.rect, self.hollow)
-        pg.draw.rect(screen, (255, 255, 255), self.rect, 2)
-        screen.blit(self.labelText, (self.xText, self.yText))
-
-    def onClick(self):
-        pass
-
-class Button:
-    def __init__(self, x, y, width, height, text, onClick = None, font = comicSans, color = (255, 255, 255)):
-        self.rect = pg.Rect(x, y, width, height)
+class Button(Element):
+    def __init__(self, coords, text, onClick = None, font = comicSans, color = (255, 255, 255)):
+        super().__init__(coords, color, 2, 5)
         self.text = text
         self.onClick = onClick
         self.font = font
-        self.color = color
+        self.clickable = True
 
     def draw(self):
-        pg.draw.rect(screen, self.color, self.rect, 2, border_radius=5)
+        super().draw()
         textSurface = self.font.render(self.text, True, self.color)
         textRect = textSurface.get_rect(center=self.rect.center)
         screen.blit(textSurface, textRect)
@@ -133,8 +117,8 @@ class Button:
             self.onClick()
 
 class DropDown(Button):
-    def __init__(self, x, y, width, height, text, buttons):
-        super().__init__(x, y, width, height, text, lambda: self.toggleButtons())
+    def __init__(self, coords, text, buttons):
+        super().__init__(coords, text, lambda: self.toggleButtons())
         self.buttons = buttons
         self.value = buttons[0].text
         self.buttonsVisible = False
@@ -154,27 +138,34 @@ class DropDown(Button):
             for i, button in enumerate(self.buttons):
                 button.rect.x = self.rect.x + self.rect.width//2 - button.rect.width//2
                 button.rect.y = self.rect.y + 32 + 20*i + self.rect.height//2 - button.rect.height//2
-                buttonsList.append(button)
+                globalElements.append(button)
             self.buttonsVisible = True
         else:
-            for i in range(len(buttonsList)-1, -1, -1):
-                button = buttonsList[i]
+            for i in range(len(globalElements)-1, -1, -1):
+                button = globalElements[i]
                 if hasattr(button, 'parent') and button.parent == self:
-                    buttonsList.pop(i)
+                    globalElements.pop(i)
             self.buttonsVisible = False
 
-class Selector(Button):
-    def __init__(self, x, y, width, height, text, options):
-        super().__init__(x, y, width, height, f"{text}{options[0]}", lambda e = self: setFocus(e))
-        self.options = options
-        self.currentIndex = 0
+class Focusable(Button):
+    def __init__(self, coords, text):
+        super().__init__(coords, text, lambda e = self: setFocus(e))
+
+class Selector(Focusable):
+    def __init__(self, coords, text, options):
+        super().__init__(coords, f"{text}{options[0]}")
         self.baseText = text
+        self.options = options
+        self.index = 0
         self.value = options[0]
 
-    def changeOption(self, dir):
-        self.currentIndex = (self.currentIndex + 1*dir) % len(self.options)
-        self.value = self.options[self.currentIndex]
+    def update(self):
+        self.value = self.options[self.index]
         self.text = f"{self.baseText}{self.value}"
+
+    def changeOption(self, dir):
+        self.index = (self.index + 1*dir) % len(self.options)
+        self.update()
 
     def handleEvents(self, event):
         processed = False
@@ -187,10 +178,13 @@ class Selector(Button):
                 processed = True
         return processed
 
-class TextInput(Button):
-    def __init__(self, x, y, width, height, text):
-        super().__init__(x, y, width, height, text, lambda e = self: setFocus(e))
+class TextInput(Focusable):
+    def __init__(self, coords, text):
+        super().__init__(coords, text)
         self.value = ""
+
+    def update(self):
+        self.text = self.value
 
     def handleEvents(self, event):
         processed = False
@@ -201,10 +195,31 @@ class TextInput(Button):
             elif event.unicode:
                 self.value += event.unicode
                 processed = True
-            self.text = self.value
+            self.update()
         return processed
 
-elements = []
+class TimetableElement(Element):
+    def __init__(self, rect, label, elem, color = (255, 255, 255), font = smallerText):
+        super().__init__(rect, color)
+        self.label = label
+        self.labelText = font.render(label, True, (0, 0, 0))
+        self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
+        self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
+        self.elem = elem
+        self.clickable = True
+
+    def draw(self):
+        pg.draw.rect(screen, self.color, self.rect, self.hollow)
+        pg.draw.rect(screen, (255, 255, 255), self.rect, 2)
+        screen.blit(self.labelText, (self.xText, self.yText))
+
+    def checkClick(self, pos):
+        if self.rect.collidepoint(pos):
+            self.onClick()
+
+    def onClick(self):
+        launchAddEvent(self.elem)
+
 focusedElement = None
 def setFocus(elem):
     global focusedElement
@@ -217,42 +232,42 @@ def setFocus(elem):
         focusedElement = None
         elem.color = (255, 255, 255)
 
-buttonsList = []
-menuButtons = []
-timeButtons = []
-eventButtons = []
+globalElements = []
+menuElements = []
+timeElements = []
+eventElements = []
 
-buttonsList.append(Button(20, 10, 150, 30, "Fullscreen", lambda: toggleFullscreen()))
-menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30, "Timetable", lambda: launchTimetable()))
-menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2, 150, 30, "To Do List", lambda: launchToDoList()))
-menuButtons.append(Button(WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30, "Quizz", lambda: launchQuizz()))
-timeButtons.append(Button(180, 10, 150, 30, "Add Event", lambda: launchAddEvent()))
-timeButtons.append(Button(340, 10, 50, 30, "<-", lambda: changeMonDate(-1)))
-timeButtons.append(Button(400, 10, 50, 30, "->", lambda: changeMonDate(1)))
-eventButtons.append(Button(180, 10, 100, 30, "Back", lambda: launchTimetable()))
+globalElements.append(Button((20, 10, 150, 30), "Fullscreen", lambda: toggleFullscreen()))
+menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30), "Timetable", lambda: launchTimetable()))
+menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2, 150, 30), "To Do List", lambda: launchToDoList()))
+menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30), "Quizz", lambda: launchQuizz()))
+launchAddButton = Button((180, 10, 150, 30), "Add Event", lambda: launchAddEvent())
+changeDateNeg = Button((340, 10, 50, 30), "<-", lambda: changeMonDate(-1))
+changeDatePos = Button((400, 10, 50, 30), "->", lambda: changeMonDate(1))
+eventElements.append(Button((180, 10, 100, 30), "Back", lambda: launchTimetable()))
 
-timeSelection = Selector(WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30, "Time: ", [t for t in times])
-durationSelection = Selector(WIDTH//2 + 25, HEIGHT//2 - 45, 150, 30, "Duration: ", [f"{d/2}h" for d in range(1, 11)])
-repeatSelection = Selector(WIDTH//2 - 75, HEIGHT//2 + 75, 165, 30, "Repeat every: ", [t for t in range(30)])
-repeatUnit = Selector(WIDTH//2 + 100, HEIGHT//2 + 75, 75, 30, "", ["days", "weeks", "months", "years"])
+timeSelection = Selector((WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
+durationSelection = Selector((WIDTH//2 + 25, HEIGHT//2 - 45, 150, 30), "Duration: ", [f"{d/2}h" for d in range(1, 11)])
+repeatSelection = Selector((WIDTH//2 - 75, HEIGHT//2 + 75, 165, 30), "Repeat every: ", [t for t in range(30)])
+repeatUnit = Selector((WIDTH//2 + 100, HEIGHT//2 + 75, 75, 30), "", ["days", "weeks", "months", "years"])
 
 possibleDays = monthDays = (date(currentDate.year, currentDate.month+1, 1) - date(currentDate.year, currentDate.month, 1)).days
-daySelection = Selector(WIDTH//2 - 65, HEIGHT//2 + 15, 30, 30, "", [d for d in range(1, possibleDays+1)])
-monthSelection = Selector(WIDTH//2 - 15, HEIGHT//2 + 15, 30, 30, "", [m for m in range(1, 13)])
-yearSelection = Selector(WIDTH//2 + 35, HEIGHT//2 + 15, 50, 30, "", [y for y in range(2026, 2101)])
+daySelection = Selector((WIDTH//2 - 65, HEIGHT//2 + 15, 30, 30), "", [d for d in range(1, possibleDays+1)])
+monthSelection = Selector((WIDTH//2 - 15, HEIGHT//2 + 15, 30, 30), "", [m for m in range(1, 13)])
+yearSelection = Selector((WIDTH//2 + 35, HEIGHT//2 + 15, 50, 30), "", [y for y in range(2026, 2101)])
 
-nameSelection = TextInput(WIDTH//2 - 75, HEIGHT//2 - 105, 150, 30, "Event Name")
-colorSelection = Selector(WIDTH//2 - 250, HEIGHT//2 + 75, 150, 30, "Color: ", [c for c in colors])
+nameSelection = TextInput((WIDTH//2 - 75, HEIGHT//2 - 105, 150, 30), "Event Name")
+colorSelection = Selector((WIDTH//2 - 250, HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
 
-eventButtons.append(timeSelection)
-eventButtons.append(durationSelection)
-eventButtons.append(daySelection)
-eventButtons.append(monthSelection)
-eventButtons.append(yearSelection)
-eventButtons.append(nameSelection)
-eventButtons.append(colorSelection)
-eventButtons.append(repeatSelection)
-eventButtons.append(repeatUnit)
+eventElements.append(timeSelection)
+eventElements.append(durationSelection)
+eventElements.append(daySelection)
+eventElements.append(monthSelection)
+eventElements.append(yearSelection)
+eventElements.append(nameSelection)
+eventElements.append(colorSelection)
+eventElements.append(repeatSelection)
+eventElements.append(repeatUnit)
 
 running = True
 
@@ -263,14 +278,14 @@ def mainMenu():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in buttonsList + menuButtons:
-                    button.checkClick(event.pos)
+                for element in globalElements + menuElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
 
     header = comicSans.render("Tools List:", True, (255, 255, 255))
     screen.blit(header, (WIDTH//2 - header.width//2, HEIGHT//2 - 100))
 
-    for button in menuButtons:
-        button.draw()
+    for element in menuElements + globalElements:
+        element.draw()
 
 def timeTable():
     global running
@@ -279,8 +294,8 @@ def timeTable():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in buttonsList + timeButtons:
-                    button.checkClick(event.pos)
+                for element in timeElements + globalElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
 
     for i, day in enumerate(weekDays):
         weekText = smallerText.render(day, True, (255, 255, 255))
@@ -295,12 +310,10 @@ def timeTable():
 
     screen.blit(comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
 
-    for element in elements:
+    for element in timeElements + globalElements:
         element.draw()
-    for button in timeButtons:
-        button.draw()
 
-def addEvent():
+def addEvent(context):
     global running
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -312,10 +325,12 @@ def addEvent():
         if processed: continue
 
         if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
-            for button in buttonsList + eventButtons:
-                button.checkClick(event.pos)
+            for element in eventElements + globalElements:
+                if hasattr(element, "clickable"): element.checkClick(event.pos)
         elif event.type == pg.KEYDOWN:
             if event.key == pg.K_RETURN:
+                if context != "New":
+                    data.deleteEvent(context)
                 eventDate = [yearSelection.value, monthSelection.value, daySelection.value]
                 eventDuration = float(durationSelection.value[:-1])
                 eventTime = float(timeSelection.value[:-1])
@@ -324,13 +339,19 @@ def addEvent():
                 eventCategory = "Temporary"
                 eventRepeat = None
                 if repeatSelection.value != 0:
-                    eventRepeat = repeatSelection.value * (repeatUnit.currentIndex+1)
+                    eventRepeat = repeatSelection.value * (repeatUnit.index+1)
                     eventCategory = "Repeated"
                 data.addEvent(eventCategory, eventName, eventTime, eventDuration, eventDate, eventColor, eventRepeat)
                 launchTimetable()
+            elif event.key == pg.K_TAB:
+                launchTimetable()
+            elif event.key == pg.K_BACKSPACE:
+                if context != "New":
+                    data.deleteEvent(context)
+                launchTimetable()
 
-    for button in eventButtons:
-        button.draw()
+    for element in eventElements + globalElements:
+        element.draw()
 
 def toDoList():
     global running
@@ -339,7 +360,7 @@ def toDoList():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in buttonsList:
+                for button in globalElements:
                     button.checkClick(event.pos)
 
 def quizz():
@@ -349,22 +370,22 @@ def quizz():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in buttonsList:
+                for button in globalElements:
                     button.checkClick(event.pos)
 
 runningFunc = lambda: mainMenu()
 
 def launchTimetable():
-    global runningFunc, elements
-    elements = []
+    global runningFunc, timeElements
+    timeElements = [launchAddButton, changeDateNeg, changeDatePos]
     timetableData = data.getTimetableData()
     for event in timetableData["Repeated"]:
         year, month, day = event["Date"]
         dDate = (date(year, month, day) - monDate).days % event["Repeat"]
         while 0 <= dDate < 7:
             eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
-            eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
-            elements.append(eventObject)
+            eventObject = TimetableElement(eventRect, event["Label"], event, event["Color"])
+            timeElements.append(eventObject)
             dDate += event["Repeat"]
     for event in timetableData["Temporary"]:
         year, month, day = event["Date"]
@@ -373,14 +394,29 @@ def launchTimetable():
             data.deleteTempEvent(event)
         elif dDate < 7:
             eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
-            eventObject = TimetableElement(eventRect, event["Label"], event["Color"])
-            elements.append(eventObject)
+            eventObject = TimetableElement(eventRect, event["Label"], event, event["Color"])
+            timeElements.append(eventObject)
 
     runningFunc = lambda: timeTable()
 
-def launchAddEvent():
+def restituteEventFromContext(context):
+    year, month, day = context["Date"]
+    yearSelection.index = int(year) - 2026; yearSelection.update();
+    monthSelection.index = int(month) - 1; monthSelection.update();
+    daySelection.index = int(day) - 1; daySelection.update();
+    nameSelection.value = context["Label"]; nameSelection.update();
+    durationSelection.index = int(context["Duration"]*2) - 1; durationSelection.update();
+    timeSelection.index = int(context["Time"]) - 8; timeSelection.update();
+    repeatSelection.index = int(context["Repeat"]); repeatSelection.update();
+    color = next((c for c, v in colors.items() if v == context["Color"]), "Red")
+    colorSelection.index = next(i for i, c in enumerate(colors) if c == color); colorSelection.update();
+
+def launchAddEvent(context = "New"):
     global runningFunc
-    runningFunc = lambda: addEvent()
+    if context != "New":
+        restituteEventFromContext(context)
+
+    runningFunc = lambda: addEvent(context)
 
 def launchToDoList():
     global runningFunc
@@ -394,7 +430,7 @@ while running:
     screen.fill((0, 0, 0))
 
     pg.draw.rect(screen, (255, 255, 255), mainWindow, 2, border_radius=5)
-    for button in buttonsList:
+    for button in globalElements:
         button.draw()
 
     runningFunc()

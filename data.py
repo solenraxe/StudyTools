@@ -34,6 +34,21 @@ def addEvent(category, label, time, duration, date, color, repeat = None):
     with open(save_path, "w") as f:
         json.dump(data, f, indent=4)
 
+def deleteEvent(event):
+    if "Repeat" in event:
+        deleteRepeatedEvent(event)
+    else:
+        deleteTempEvent(event)
+
+def deleteRepeatedEvent(event):
+    for i in range(len(data["Timetable"]["Repeated"]) - 1, -1, -1):
+        ev = data["Timetable"]["Repeated"][i]
+        if ev == event:
+            data["Timetable"]["Repeated"].pop(i)
+
+    with open(save_path, 'w') as f:
+            json.dump(data, f, indent=4)
+
 def deleteTempEvent(event):
     for i in range(len(data["Timetable"]["Temporary"]) - 1, -1, -1):
         ev = data["Timetable"]["Temporary"][i]
