@@ -1,27 +1,27 @@
 from tkinter import filedialog as fd
 from datetime import date
 import pygame as pg
-import os
-import pyperclip
 
 import data
+import solui as ui
 
 pg.init()
 pg.font.init()
 
 comicSans = pg.font.SysFont("Comic Sans MS", 18)
-smallerText = pg.font.SysFont("Comic Sans MS", 15)
+smallerText = pg.font.SysFont("Comic Sans MS", 16)
 dropDownText = pg.font.SysFont("Comic Sans MS", 10)
 
 displayInfo = pg.display.Info()
 WIDTH, HEIGHT = 800, 600
 
 screen = pg.display.set_mode((WIDTH, HEIGHT))
+ui.screen = screen
 clock = pg.time.Clock()
 
-#icon = pg.image.load("SolPy.png")
+icon = pg.image.load(data.resource_path("StudyTools.png")).convert_alpha()
 pg.display.set_caption("Study Tools")
-#pg.display.set_icon(icon)
+pg.display.set_icon(icon)
 
 mainWindow = pg.Rect(20, 50, WIDTH - 40, HEIGHT - 70)
 
@@ -81,129 +81,24 @@ def toggleFullscreen():
         mainWindow.width = WIDTH - 40
         mainWindow.height = HEIGHT - 70
 
-def changeMonDate(dir):
+def changeMonDate(dir, ctx):
     global monDay, monMonth, monYear, monDate
     monDay, monMonth, monYear = substractDays(monDate, (-7+dir)*dir)
     monDate = date(monYear, monMonth, monDay)
 
-    launchTimetable()
+    globals()[f"launch{ctx}"]()
 
-class Element:
-    def __init__(self, coords, color = (255, 255, 255), hollow = 0, radius = 0):
-        self.rect = pg.Rect(coords[0], coords[1], coords[2], coords[3])
-        self.color = color
-        self.hollow = hollow
-        self.radius = radius
-
-    def draw(self):
-        pg.draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
-
-class Button(Element):
-    def __init__(self, coords, text, onClick = None, font = comicSans, color = (255, 255, 255)):
-        super().__init__(coords, color, 2, 5)
-        self.text = text
-        self.onClick = onClick
-        self.font = font
-        self.clickable = True
-
-    def draw(self):
-        super().draw()
-        textSurface = self.font.render(self.text, True, self.color)
-        textRect = textSurface.get_rect(center=self.rect.center)
-        screen.blit(textSurface, textRect)
-
-    def checkClick(self, pos):
-        if self.rect.collidepoint(pos):
-            self.onClick()
-
-class DropDown(Button):
-    def __init__(self, coords, text, buttons):
-        super().__init__(coords, text, lambda: self.toggleButtons())
-        self.buttons = buttons
-        self.value = buttons[0].text
-        self.buttonsVisible = False
-
-        for button in self.buttons:
-            button.parent = self
-            button.font = dropDownText
-            button.onClick = lambda v = button.text: self.setValue(v)
-
-    def setValue(self, value):
-        self.value = value
-        self.text = value
-        self.toggleButtons()
-
-    def toggleButtons(self):
-        if not self.buttonsVisible:
-            for i, button in enumerate(self.buttons):
-                button.rect.x = self.rect.x + self.rect.width//2 - button.rect.width//2
-                button.rect.y = self.rect.y + 32 + 20*i + self.rect.height//2 - button.rect.height//2
-                globalElements.append(button)
-            self.buttonsVisible = True
-        else:
-            for i in range(len(globalElements)-1, -1, -1):
-                button = globalElements[i]
-                if hasattr(button, 'parent') and button.parent == self:
-                    globalElements.pop(i)
-            self.buttonsVisible = False
-
-class Focusable(Button):
-    def __init__(self, coords, text):
-        super().__init__(coords, text, lambda e = self: setFocus(e))
-
-class Selector(Focusable):
-    def __init__(self, coords, text, options):
-        super().__init__(coords, f"{text}{options[0]}")
-        self.baseText = text
-        self.options = options
-        self.index = 0
-        self.value = options[0]
-
-    def update(self):
-        self.value = self.options[self.index]
-        self.text = f"{self.baseText}{self.value}"
-
-    def changeOption(self, dir):
-        self.index = (self.index + 1*dir) % len(self.options)
-        self.update()
-
-    def handleEvents(self, event):
-        processed = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_UP:
-                self.changeOption(1)
-                processed = True
-            elif event.key == pg.K_DOWN:
-                self.changeOption(-1)
-                processed = True
-        return processed
-
-class TextInput(Focusable):
-    def __init__(self, coords, text):
-        super().__init__(coords, text)
-        self.value = ""
-
-    def update(self):
-        self.text = self.value
-
-    def handleEvents(self, event):
-        processed = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_BACKSPACE:
-                self.value = self.value[:-1]
-                processed = True
-            elif event.unicode:
-                self.value += event.unicode
-                processed = True
-            self.update()
-        return processed
-
-class TimetableElement(Element):
+class TimetableElement(ui.Element):
     def __init__(self, rect, label, elem, color = (255, 255, 255), font = smallerText):
         super().__init__(rect, color)
         self.label = label
         self.labelText = font.render(label, True, (0, 0, 0))
-        self.xText = self.rect.x + self.rect.width//2 - self.labelText.get_width()//2
+        fontSize = 16
+        while self.labelText.get_width() > rect.width - 20 or self.labelText.get_height() > rect.height - 4:
+            fontSize -= 1
+            font = pg.font.SysFont("Comic Sans MS", fontSize)
+            self.labelText = font.render(label, True, (0, 0, 0))
+        self.xText = self.rect.x + 10
         self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
         self.elem = elem
         self.clickable = True
@@ -220,44 +115,34 @@ class TimetableElement(Element):
     def onClick(self):
         launchAddEvent(self.elem)
 
-focusedElement = None
-def setFocus(elem):
-    global focusedElement
-    if focusedElement != elem:
-        if focusedElement != None:
-            focusedElement.color = (255, 255, 255)
-        focusedElement = elem
-        elem.color = (255, 0, 0)
-    else:
-        focusedElement = None
-        elem.color = (255, 255, 255)
-
 globalElements = []
 menuElements = []
 timeElements = []
 eventElements = []
+toDoElements = []
 
-globalElements.append(Button((20, 10, 150, 30), "Fullscreen", lambda: toggleFullscreen()))
-menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30), "Timetable", lambda: launchTimetable()))
-menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2, 150, 30), "To Do List", lambda: launchToDoList()))
-menuElements.append(Button((WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30), "Quizz", lambda: launchQuizz()))
-launchAddButton = Button((180, 10, 150, 30), "Add Event", lambda: launchAddEvent())
-changeDateNeg = Button((340, 10, 50, 30), "<-", lambda: changeMonDate(-1))
-changeDatePos = Button((400, 10, 50, 30), "->", lambda: changeMonDate(1))
-eventElements.append(Button((180, 10, 100, 30), "Back", lambda: launchTimetable()))
+globalElements.append(ui.Button((20, 10, 150, 30), "Fullscreen", lambda: toggleFullscreen()))
+globalElements.append(ui.Button((180, 10, 75, 30), "Menu", lambda: launchMenu()))
+menuElements.append(ui.Button((WIDTH//2 - 75, HEIGHT//2 - 50, 150, 30), "Timetable", lambda: launchTimetable()))
+menuElements.append(ui.Button((WIDTH//2 - 75, HEIGHT//2, 150, 30), "To Do List", lambda: launchToDoList()))
+menuElements.append(ui.Button((WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30), "Quizz", lambda: launchQuizz()))
+launchAddButton = ui.Button((385, 10, 150, 30), "Add Event", lambda: launchAddEvent())
+changeDateNeg = ui.Button((265, 10, 50, 30), "<-", lambda: changeMonDate(-1, "Timetable"))
+changeDatePos = ui.Button((325, 10, 50, 30), "->", lambda: changeMonDate(1, "Timetable"))
+eventElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchTimetable()))
 
-timeSelection = Selector((WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
-durationSelection = Selector((WIDTH//2 + 25, HEIGHT//2 - 45, 150, 30), "Duration: ", [f"{d/2}h" for d in range(1, 11)])
-repeatSelection = Selector((WIDTH//2 - 75, HEIGHT//2 + 75, 165, 30), "Repeat every: ", [t for t in range(30)])
-repeatUnit = Selector((WIDTH//2 + 100, HEIGHT//2 + 75, 75, 30), "", ["days", "weeks", "months", "years"])
+timeSelection = ui.Selector((WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
+durationSelection = ui.Selector((WIDTH//2 + 25, HEIGHT//2 - 45, 150, 30), "Duration: ", [f"{d/2}h" for d in range(1, 11)])
+repeatSelection = ui.Selector((WIDTH//2 - 75, HEIGHT//2 + 75, 165, 30), "Repeat every: ", [t for t in range(30)])
+repeatUnit = ui.Selector((WIDTH//2 + 100, HEIGHT//2 + 75, 75, 30), "", ["days", "weeks", "months", "years"])
 
 possibleDays = monthDays = (date(currentDate.year, currentDate.month+1, 1) - date(currentDate.year, currentDate.month, 1)).days
-daySelection = Selector((WIDTH//2 - 65, HEIGHT//2 + 15, 30, 30), "", [d for d in range(1, possibleDays+1)])
-monthSelection = Selector((WIDTH//2 - 15, HEIGHT//2 + 15, 30, 30), "", [m for m in range(1, 13)])
-yearSelection = Selector((WIDTH//2 + 35, HEIGHT//2 + 15, 50, 30), "", [y for y in range(2026, 2101)])
+daySelection = ui.Selector((WIDTH//2 - 65, HEIGHT//2 + 15, 30, 30), "", [d for d in range(1, possibleDays+1)])
+monthSelection = ui.Selector((WIDTH//2 - 15, HEIGHT//2 + 15, 30, 30), "", [m for m in range(1, 13)])
+yearSelection = ui.Selector((WIDTH//2 + 35, HEIGHT//2 + 15, 50, 30), "", [y for y in range(2026, 2101)])
 
-nameSelection = TextInput((WIDTH//2 - 75, HEIGHT//2 - 105, 150, 30), "Event Name")
-colorSelection = Selector((WIDTH//2 - 250, HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
+nameSelection = ui.TextInput((WIDTH//2 - 75, HEIGHT//2 - 105, 150, 30), "Event Name")
+colorSelection = ui.Selector((WIDTH//2 - 250, HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
 
 eventElements.append(timeSelection)
 eventElements.append(durationSelection)
@@ -268,6 +153,9 @@ eventElements.append(nameSelection)
 eventElements.append(colorSelection)
 eventElements.append(repeatSelection)
 eventElements.append(repeatUnit)
+
+toDoElements.append(changeDateNeg)
+toDoElements.append(changeDatePos)
 
 running = True
 
@@ -321,7 +209,7 @@ def addEvent(context):
             continue
 
         processed = False
-        if focusedElement != None: processed = focusedElement.handleEvents(event)
+        if ui.focusedElement != None: processed = ui.focusedElement.handleEvents(event)
         if processed: continue
 
         if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
@@ -360,8 +248,16 @@ def toDoList():
             running = False
         elif event.type == pg.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in globalElements:
-                    button.checkClick(event.pos)
+                for element in toDoElements + globalElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
+
+    screen.blit(comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
+
+    header = comicSans.render("To do:", True, (255, 255, 255))
+    screen.blit(header, (WIDTH//2 - header.get_width()//2, 100))
+
+    for element in toDoElements + globalElements:
+        element.draw()
 
 def quizz():
     global running
@@ -374,6 +270,10 @@ def quizz():
                     button.checkClick(event.pos)
 
 runningFunc = lambda: mainMenu()
+
+def launchMenu():
+    global runningFunc
+    runningFunc = lambda: mainMenu()
 
 def launchTimetable():
     global runningFunc, timeElements
@@ -421,6 +321,8 @@ def launchAddEvent(context = "New"):
 def launchToDoList():
     global runningFunc
     runningFunc = lambda: toDoList()
+    changeDateNeg.onClick = lambda: changeMonDate(-1, "ToDoList")
+    changeDatePos.onClick = lambda: changeMonDate(1, "ToDoList")
 
 def launchQuizz():
     global runningFunc
@@ -428,10 +330,7 @@ def launchQuizz():
 
 while running:
     screen.fill((0, 0, 0))
-
     pg.draw.rect(screen, (255, 255, 255), mainWindow, 2, border_radius=5)
-    for button in globalElements:
-        button.draw()
 
     runningFunc()
 
