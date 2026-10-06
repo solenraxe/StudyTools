@@ -6,3 +6,8 @@ __pycache__/data.cpython-314.pyc
 .venv/bin/autopytoexe
 .venv/bin/auto-py-to-exe
 .venv/bin/activate.fish
+.venv/
+__pycache__/
+build/display/
+display.spec
+StudyTools.xpm

@@ -27,18 +27,18 @@ with open(save_path, 'r') as f:
 def getData(ctx):
     return data[ctx].copy()
 
-def addEvent(category, label, time, duration, date, color, repeat = None):
+def addEvent(category, label, time, duration, date, color, repeat = 0):
     event = {"Label": label, "Time": time, "Duration": duration, "Color": color, "Date": date, "Repeat": repeat}
     data["Timetable"][category].append(event)
 
-    with open(save_path, "w") as f:
-        json.dump(data, f, indent=2)
+    save()
 
 def deleteEvent(event):
-    if "Repeat" in event:
+    if "Repeat" in event and event["Repeat"] != 0:
         deleteRepeatedEvent(event)
     else:
         deleteTempEvent(event)
+    save()
 
 def deleteRepeatedEvent(event):
     for i in range(len(data["Timetable"]["Repeated"]) - 1, -1, -1):
@@ -46,20 +46,31 @@ def deleteRepeatedEvent(event):
         if ev == event:
             data["Timetable"]["Repeated"].pop(i)
 
-    with open(save_path, 'w') as f:
-            json.dump(data, f, indent=2)
-
 def deleteTempEvent(event):
     for i in range(len(data["Timetable"]["Temporary"]) - 1, -1, -1):
         ev = data["Timetable"]["Temporary"][i]
         if ev == event:
             data["Timetable"]["Temporary"].pop(i)
 
-    with open(save_path, 'w') as f:
-            json.dump(data, f, indent=2)
+def addTask(label, date, quantity):
+    task = {"Label": label, "Date": date, "Progress": 0, "Quantity": quantity}
+    data["To Do List"].append(task)
+
+    save()
+
+def progressTask(task):
+    for i, ts in enumerate(data["To Do List"]):
+        if ts == task:
+            data["To Do List"][i]["Progress"] = (data["To Do List"][i]["Progress"]+1) % (task["Quantity"]+1)
+    save()
 
 def deleteTask(task):
     for i in range(len(data["To Do List"])-1, -1, -1):
         ts = data["To Do List"][i]
         if ts == task:
             data["To Do List"].pop(i)
+    save()
+
+def save():
+    with open(save_path, "w") as f:
+        json.dump(data, f, indent=2)

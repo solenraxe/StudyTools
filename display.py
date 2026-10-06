@@ -1,3 +1,4 @@
+from calendar import month
 from datetime import date
 import pygame as pg
 
@@ -68,6 +69,7 @@ currentDate = date.today()
 weekDay = weekDays[currentDate.isoweekday()-1]
 
 monDay, monMonth, monYear = substractDays(currentDate, currentDate.isoweekday())
+permMonDate = date(monYear, monMonth, monDay)
 monDate = date(monYear, monMonth, monDay)
 
 def toggleFullscreen():
@@ -109,31 +111,35 @@ class TimetableElement(ui.Element):
 
     def checkClick(self, pos):
         if self.rect.collidepoint(pos):
-            self.onClick()
-
-    def onClick(self):
-        launchAddEvent(self.elem)
+            launchAddEvent(self.elem)
 
 class ToDoElement(ui.Element):
-    def __init__(self, coords, text, progress, quantity):
+    def __init__(self, coords, elem):
         super().__init__(coords)
-        self.text = comicSans.render(text, True, (255, 255, 255))
-        self.quantity = int(quantity)
-        self.progress = int(progress)
-        self.button = ui.Button((coords[0], coords[1], 50, 30), f"{progress}/{quantity}", lambda: self.increaseProgress())
+        self.baseText = f"{elem["Label"]} ({elem["Date"][2]}/{elem["Date"][1]}/{elem["Date"][0]})"
+        self.text = comicSans.render(self.baseText, True, (255, 255, 255))
+        self.quantity = int(elem["Quantity"])
+        self.progress = int(elem["Progress"])
+        self.button = ui.Button((coords[0], coords[1], 50, 30), f"{self.progress}/{self.quantity}", lambda: self.increaseProgress())
         self.clickable = True
+        self.elem = elem
 
     def increaseProgress(self):
         self.progress = (self.progress+1)%(self.quantity+1)
         self.button.text = f"{self.progress}/{self.quantity}"
         if self.progress == self.quantity:
-            pass
+            self.text = comicSans.render(self.baseText, True, (0, 255, 0))
+            self.button.color = (0, 255, 0)
+        else:
+            self.text = comicSans.render(self.baseText, True, (255, 255, 255))
+            self.button.color = (255, 255, 255)
+        data.progressTask(self.elem)
 
     def checkClick(self, pos):
         if self.button.rect.collidepoint(pos):
             self.button.onClick()
-        #elif self.rect.collidepoint(pos):
-            #self.onClick()
+        elif self.rect.collidepoint(pos):
+            launchAddTask(self.elem)
 
     def draw(self):
         self.button.draw()
@@ -144,6 +150,7 @@ menuElements = []
 timeElements = []
 eventElements = []
 toDoElements = []
+taskElements = []
 
 globalElements.append(ui.Button((20, 10, 150, 30), "Fullscreen", lambda: toggleFullscreen()))
 globalElements.append(ui.Button((180, 10, 75, 30), "Menu", lambda: launchMenu()))
@@ -167,6 +174,7 @@ yearSelection = ui.Selector((WIDTH//2 + 35, HEIGHT//2 + 15, 50, 30), "", [y for 
 
 nameSelection = ui.TextInput((WIDTH//2 - 75, HEIGHT//2 - 105, 150, 30), "Event Name")
 colorSelection = ui.Selector((WIDTH//2 - 250, HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
+quantitySelection = ui.Selector((WIDTH//2 - 75, HEIGHT//2 - 45, 150, 30), "Quantity: ", [i for i in range(1, 20)])
 
 eventElements.append(timeSelection)
 eventElements.append(durationSelection)
@@ -178,8 +186,17 @@ eventElements.append(colorSelection)
 eventElements.append(repeatSelection)
 eventElements.append(repeatUnit)
 
+launchAddTButton = ui.Button((385, 10, 150, 30), "Add Task", lambda: launchAddTask())
+toDoElements.append(launchAddTButton)
 toDoElements.append(changeDateNeg)
 toDoElements.append(changeDatePos)
+
+taskElements.append(nameSelection)
+taskElements.append(daySelection)
+taskElements.append(monthSelection)
+taskElements.append(yearSelection)
+taskElements.append(quantitySelection)
+taskElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchToDoList()))
 
 running = True
 
@@ -286,6 +303,40 @@ def toDoList():
     for element in toDoElements + globalElements:
         element.draw()
 
+def addTask(ctx):
+    global running
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            running = False
+            continue
+
+        processed = False
+        if ui.focusedElement != None: processed = ui.focusedElement.handleEvents(event)
+        if processed: continue
+
+        elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                for element in globalElements + taskElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
+        elif event.type == pg.KEYDOWN:
+            if event.key == pg.K_RETURN:
+                if ctx != "New":
+                    data.deleteTask(ctx)
+                taskName = nameSelection.text
+                taskDate = [yearSelection.value, monthSelection.value, daySelection.value]
+                taskQuant = quantitySelection.value
+                data.addTask(taskName, taskDate, taskQuant)
+                launchToDoList()
+            elif event.key == pg.K_BACKSPACE:
+                if ctx != "New":
+                    data.deleteTask(ctx)
+                launchToDoList()
+            elif event.key == pg.K_TAB:
+                launchToDoList()
+
+    for element in globalElements + taskElements:
+        element.draw()
+
 def quizz():
     global running
     for event in pg.event.get():
@@ -304,6 +355,8 @@ def launchMenu():
 
 def launchTimetable():
     global runningFunc, timeElements
+    changeDateNeg.onClick = lambda: changeMonDate(-1, "Timetable")
+    changeDatePos.onClick = lambda: changeMonDate(1, "Timetable")
     timeElements = [launchAddButton, changeDateNeg, changeDatePos]
     timetableData = data.getData("Timetable")
     for event in timetableData["Repeated"]:
@@ -317,7 +370,7 @@ def launchTimetable():
     for event in timetableData["Temporary"]:
         year, month, day = event["Date"]
         dDate = (date(year, month, day) - monDate).days
-        if dDate < 0:
+        if dDate < 0 and (date(year, month, day) - permMonDate).days < 0:
             data.deleteTempEvent(event)
         elif dDate < 7:
             eventRect = pg.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
@@ -346,22 +399,37 @@ def launchAddEvent(context = "New"):
     runningFunc = lambda: addEvent(context)
 
 def launchToDoList():
-    global runningFunc
-    runningFunc = lambda: toDoList()
+    global runningFunc, toDoElements
     changeDateNeg.onClick = lambda: changeMonDate(-1, "ToDoList")
     changeDatePos.onClick = lambda: changeMonDate(1, "ToDoList")
-
+    toDoElements = [launchAddTButton, changeDateNeg, changeDatePos]
     toDoData = data.getData("To Do List")
     taskCounter = 0
     for task in toDoData:
         year, month, day = task["Date"]
         dDate = (date(year, month, day) - monDate).days
-        if dDate < 0 or task["Progress"] == task["Quantity"]:
+        if (dDate < 0 and (date(year, month, day) - permMonDate).days < 0) or task["Progress"] == task["Quantity"]:
             data.deleteTask(task)
         elif dDate < 7:
-            taskObj = ToDoElement((220, 150+60*taskCounter, 360, 50), f"{task["Label"]} ({day}/{month}/{year})", task["Progress"], task["Quantity"])
+            taskObj = ToDoElement((220, 150+60*taskCounter, 360, 50), task)
             toDoElements.append(taskObj)
             taskCounter += 1
+
+    runningFunc = lambda: toDoList()
+
+def restituteTaskFromContext(ctx):
+    year, month, day = ctx["Date"]
+    yearSelection.index = int(year) - 2026; yearSelection.update();
+    monthSelection.index = int(month) - 1; monthSelection.update();
+    daySelection.index = int(day) - 1; daySelection.update();
+    nameSelection.value = ctx["Label"]; nameSelection.update();
+    quantitySelection.value = ctx["Quantity"]; quantitySelection.update();
+
+def launchAddTask(ctx = "New"):
+    global runningFunc
+    if ctx != "New":
+        restituteTaskFromContext(ctx)
+    runningFunc = lambda: addTask(ctx)
 
 def launchQuizz():
     global runningFunc
