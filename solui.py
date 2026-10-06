@@ -3,9 +3,9 @@ import pygame as pg
 pg.init()
 pg.font.init()
 
-comicSans = pg.font.SysFont("Comic Sans MS", 18)
-smallerText = pg.font.SysFont("Comic Sans MS", 16)
-dropDownText = pg.font.SysFont("Comic Sans MS", 10)
+comicSans = pg.font.SysFont("ldfcomicsansbold", 18)
+smallerText = pg.font.SysFont("ldfcomicsansbold", 16)
+dropDownText = pg.font.SysFont("ldfcomicsansbold", 10)
 
 screen = None
 

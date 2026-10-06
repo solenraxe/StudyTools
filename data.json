@@ -1,1 +1,7 @@
-{"Timetable": {}}
+{
+  "Timetable": {
+    "Repeated": [],
+    "Temporary": []
+  },
+  "To Do List": []
+}

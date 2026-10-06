@@ -1,4 +1,3 @@
-from tkinter import filedialog as fd
 from datetime import date
 import pygame as pg
 
@@ -8,9 +7,9 @@ import solui as ui
 pg.init()
 pg.font.init()
 
-comicSans = pg.font.SysFont("Comic Sans MS", 18)
-smallerText = pg.font.SysFont("Comic Sans MS", 16)
-dropDownText = pg.font.SysFont("Comic Sans MS", 10)
+comicSans = pg.font.SysFont("ldfcomicsansbold", 18)
+smallerText = pg.font.SysFont("ldfcomicsansbold", 16)
+dropDownText = pg.font.SysFont("ldfcomicsansbold", 10)
 
 displayInfo = pg.display.Info()
 WIDTH, HEIGHT = 800, 600
@@ -96,7 +95,7 @@ class TimetableElement(ui.Element):
         fontSize = 16
         while self.labelText.get_width() > rect.width - 20 or self.labelText.get_height() > rect.height - 4:
             fontSize -= 1
-            font = pg.font.SysFont("Comic Sans MS", fontSize)
+            font = pg.font.SysFont("ldfcomicsansbold", fontSize)
             self.labelText = font.render(label, True, (0, 0, 0))
         self.xText = self.rect.x + 10
         self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
@@ -114,6 +113,31 @@ class TimetableElement(ui.Element):
 
     def onClick(self):
         launchAddEvent(self.elem)
+
+class ToDoElement(ui.Element):
+    def __init__(self, coords, text, progress, quantity):
+        super().__init__(coords)
+        self.text = comicSans.render(text, True, (255, 255, 255))
+        self.quantity = int(quantity)
+        self.progress = int(progress)
+        self.button = ui.Button((coords[0], coords[1], 50, 30), f"{progress}/{quantity}", lambda: self.increaseProgress())
+        self.clickable = True
+
+    def increaseProgress(self):
+        self.progress = (self.progress+1)%(self.quantity+1)
+        self.button.text = f"{self.progress}/{self.quantity}"
+        if self.progress == self.quantity:
+            pass
+
+    def checkClick(self, pos):
+        if self.button.rect.collidepoint(pos):
+            self.button.onClick()
+        #elif self.rect.collidepoint(pos):
+            #self.onClick()
+
+    def draw(self):
+        self.button.draw()
+        screen.blit(self.text, (self.rect.x + 60, self.rect.y))
 
 globalElements = []
 menuElements = []
@@ -256,6 +280,9 @@ def toDoList():
     header = comicSans.render("To do:", True, (255, 255, 255))
     screen.blit(header, (WIDTH//2 - header.get_width()//2, 100))
 
+    listRect = pg.Rect(200, 130, 400, 400)
+    pg.draw.rect(screen, (255, 255, 255), listRect, 2, 5)
+
     for element in toDoElements + globalElements:
         element.draw()
 
@@ -278,7 +305,7 @@ def launchMenu():
 def launchTimetable():
     global runningFunc, timeElements
     timeElements = [launchAddButton, changeDateNeg, changeDatePos]
-    timetableData = data.getTimetableData()
+    timetableData = data.getData("Timetable")
     for event in timetableData["Repeated"]:
         year, month, day = event["Date"]
         dDate = (date(year, month, day) - monDate).days % event["Repeat"]
@@ -323,6 +350,18 @@ def launchToDoList():
     runningFunc = lambda: toDoList()
     changeDateNeg.onClick = lambda: changeMonDate(-1, "ToDoList")
     changeDatePos.onClick = lambda: changeMonDate(1, "ToDoList")
+
+    toDoData = data.getData("To Do List")
+    taskCounter = 0
+    for task in toDoData:
+        year, month, day = task["Date"]
+        dDate = (date(year, month, day) - monDate).days
+        if dDate < 0 or task["Progress"] == task["Quantity"]:
+            data.deleteTask(task)
+        elif dDate < 7:
+            taskObj = ToDoElement((220, 150+60*taskCounter, 360, 50), f"{task["Label"]} ({day}/{month}/{year})", task["Progress"], task["Quantity"])
+            toDoElements.append(taskObj)
+            taskCounter += 1
 
 def launchQuizz():
     global runningFunc
