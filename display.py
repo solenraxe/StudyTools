@@ -1,4 +1,3 @@
-from calendar import month
 from datetime import date
 import pygame as pg
 
@@ -82,6 +81,15 @@ def toggleFullscreen():
         mainWindow.width = WIDTH - 40
         mainWindow.height = HEIGHT - 70
 
+def printScreen():
+    from PIL import Image
+    img = Image.new('RGB', (WIDTH, HEIGHT), (0, 0, 0))
+    for x in range(WIDTH):
+        for y in range(HEIGHT):
+            r, g, b, _ = screen.get_at((x, y))
+            img.putpixel((x, y), (r, g, b))
+    img.show()
+
 def changeMonDate(dir, ctx):
     global monDay, monMonth, monYear, monDate
     monDay, monMonth, monYear = substractDays(monDate, (-7+dir)*dir)
@@ -160,6 +168,7 @@ menuElements.append(ui.Button((WIDTH//2 - 75, HEIGHT//2 + 50, 150, 30), "Quizz",
 launchAddButton = ui.Button((385, 10, 150, 30), "Add Event", lambda: launchAddEvent())
 changeDateNeg = ui.Button((265, 10, 50, 30), "<-", lambda: changeMonDate(-1, "Timetable"))
 changeDatePos = ui.Button((325, 10, 50, 30), "->", lambda: changeMonDate(1, "Timetable"))
+printScreenBtn = ui.Button((545, 10, 75, 30), "Save", lambda: printScreen())
 eventElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchTimetable()))
 
 timeSelection = ui.Selector((WIDTH//2 - 175, HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
@@ -218,14 +227,6 @@ def mainMenu():
 
 def timeTable():
     global running
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            running = False
-        elif event.type == pg.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                for element in timeElements + globalElements:
-                    if hasattr(element, "clickable"): element.checkClick(event.pos)
-
     for i, day in enumerate(weekDays):
         weekText = smallerText.render(day, True, (255, 255, 255))
         screen.blit(weekText, (120 + 95 * i, 85))
@@ -241,6 +242,14 @@ def timeTable():
 
     for element in timeElements + globalElements:
         element.draw()
+
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            running = False
+        elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                for element in timeElements + globalElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
 
 def addEvent(context):
     global running
@@ -268,7 +277,7 @@ def addEvent(context):
                 eventCategory = "Temporary"
                 eventRepeat = None
                 if repeatSelection.value != 0:
-                    eventRepeat = repeatSelection.value * (repeatUnit.index+1)
+                    eventRepeat = repeatSelection.value * (repeatUnit.index*6+1)
                     eventCategory = "Repeated"
                 data.addEvent(eventCategory, eventName, eventTime, eventDuration, eventDate, eventColor, eventRepeat)
                 launchTimetable()
@@ -357,7 +366,7 @@ def launchTimetable():
     global runningFunc, timeElements
     changeDateNeg.onClick = lambda: changeMonDate(-1, "Timetable")
     changeDatePos.onClick = lambda: changeMonDate(1, "Timetable")
-    timeElements = [launchAddButton, changeDateNeg, changeDatePos]
+    timeElements = [launchAddButton, changeDateNeg, changeDatePos, printScreenBtn]
     timetableData = data.getData("Timetable")
     for event in timetableData["Repeated"]:
         year, month, day = event["Date"]
