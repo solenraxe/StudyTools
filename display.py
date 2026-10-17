@@ -55,6 +55,8 @@ monDay, monMonth, monYear = substractDays(currentDate, currentDate.isoweekday())
 permMonDate = date(monYear, monMonth, monDay)
 monDate = date(monYear, monMonth, monDay)
 
+scroll = 0
+
 def printScreen():
     from PIL import Image
     img = Image.new('RGB', (ui.WIDTH, ui.HEIGHT), (0, 0, 0))
@@ -98,7 +100,7 @@ class TimetableElement(ui.Element):
 class ToDoElement(ui.Element):
     def __init__(self, coords, elem):
         super().__init__(coords)
-        self.baseText = f"{elem["Label"]} ({elem["Date"][2]}/{elem["Date"][1]}/{elem["Date"][0]})"
+        self.baseText = f"{elem["Label"]} [{elem["Date"][2]}/{elem["Date"][1]}]"
         self.text = ui.comicSans.render(self.baseText, True, (255, 255, 255))
         self.quantity = int(elem["Quantity"])
         self.progress = int(elem["Progress"])
@@ -252,10 +254,14 @@ def addEvent(context):
         element.draw()
 
 def toDoList():
+    global scroll
     for event in ui.events:
         if event.type == ui.MOUSEBUTTONDOWN and event.button == 1:
             for element in toDoElements + globalElements:
                 if hasattr(element, "clickable"): element.checkClick(event.pos)
+        elif event.type == ui.MOUSEWHEEL:
+            scroll = max(0, scroll - 1 * (event.y//1))
+            launchToDoList(scroll)
 
     ui.screen.blit(ui.comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
 
@@ -301,8 +307,11 @@ def quizz():
     for event in ui.events:
         if event.type == ui.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for button in globalElements:
-                    button.checkClick(event.pos)
+                for element in globalElements:
+                    if hasattr(element, "clickable"): element.checkClick(event.pos)
+
+    for element in globalElements:
+        element.draw()
 
 def launchMenu():
     ui.runningFunc = lambda: mainMenu()
@@ -351,22 +360,31 @@ def launchAddEvent(context = "New"):
 
     ui.runningFunc = lambda: addEvent(context)
 
-def launchToDoList():
+def launchToDoList(skip = 0):
     global toDoElements
     changeDateNeg.onClick = lambda: changeMonDate(-1, "ToDoList")
     changeDatePos.onClick = lambda: changeMonDate(1, "ToDoList")
     toDoElements = [launchAddTButton, changeDateNeg, changeDatePos]
     toDoData = data.getData("To Do List")
-    taskCounter = 0
+    acceptedTasks = []
     for task in toDoData:
         year, month, day = task["Date"]
         dDate = (date(year, month, day) - monDate).days
         if (dDate < 0 and (date(year, month, day) - permMonDate).days < 0) or task["Progress"] == task["Quantity"]:
             data.deleteTask(task)
-        elif dDate < 14:
-            taskObj = ToDoElement((220, 150+60*taskCounter, 360, 50), task)
-            toDoElements.append(taskObj)
-            taskCounter += 1
+        elif 0 < dDate < 14:
+            acceptedTasks.append(task)
+    skip = min(skip, len(acceptedTasks)-8)
+    if len(acceptedTasks) > 9:
+        #200, 130, 400, 400
+        scrollBar = ui.Element((588, 137+386/(len(acceptedTasks)+1)*skip, 5, 386*9/(len(acceptedTasks)+1)), radius = 5)
+        toDoElements.append(scrollBar)
+    taskCounter = 0
+    for i, task in enumerate(acceptedTasks):
+        if (len(acceptedTasks) > 9 and skip > 0) or taskCounter > 8: skip -= 1; continue
+        taskObj = ToDoElement((220, 150+42*taskCounter, 360, 50), task)
+        toDoElements.append(taskObj)
+        taskCounter += 1
 
     ui.runningFunc = lambda: toDoList()
 
