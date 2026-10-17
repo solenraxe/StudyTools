@@ -1,23 +1,30 @@
-import pygame as pg
+from pygame import *
 
-pg.init()
-pg.font.init()
+init()
+font.init()
 
-comicSans = pg.font.SysFont("ldfcomicsansbold", 18)
-smallerText = pg.font.SysFont("ldfcomicsansbold", 16)
-dropDownText = pg.font.SysFont("ldfcomicsansbold", 10)
+comicSans = font.SysFont("ldfcomicsansbold", 18)
+smallerText = font.SysFont("ldfcomicsansbold", 16)
+dropDownText = font.SysFont("ldfcomicsansbold", 10)
 
-screen = None
+displayInfo = display.Info()
+WIDTH, HEIGHT = 800, 600
+
+screen = display.set_mode((WIDTH, HEIGHT))
+clock = time.Clock()
+
+defferedFuncs = []
 
 class Element:
     def __init__(self, coords, color = (255, 255, 255), hollow = 0, radius = 0):
-        self.rect = pg.Rect(coords[0], coords[1], coords[2], coords[3])
+        self.originalCoords = coords
+        self.rect = Rect(coords[0], coords[1], coords[2], coords[3])
         self.color = color
         self.hollow = hollow
         self.radius = radius
 
     def draw(self):
-        pg.draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
+        draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
 
 class Button(Element):
     def __init__(self, coords, text, onClick = None, font = comicSans, color = (255, 255, 255)):
@@ -34,7 +41,7 @@ class Button(Element):
         screen.blit(textSurface, textRect)
 
     def checkClick(self, pos):
-        if self.rect.collidepoint(pos):
+        if self.rect.collidepoint(pos) and self.onClick:
             self.onClick()
 
 class DropDown(Button):
@@ -97,11 +104,11 @@ class Selector(Focusable):
 
     def handleEvents(self, event):
         processed = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_UP:
+        if event.type == KEYDOWN:
+            if event.key == K_UP:
                 self.changeOption(1)
                 processed = True
-            elif event.key == pg.K_DOWN:
+            elif event.key == K_DOWN:
                 self.changeOption(-1)
                 processed = True
         return processed
@@ -116,11 +123,11 @@ class TextInput(Focusable):
 
     def handleEvents(self, event):
         processed = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_BACKSPACE:
+        if event.type == KEYDOWN:
+            if event.key == K_BACKSPACE:
                 self.value = self.value[:-1]
                 processed = True
-            elif event.key == pg.K_RETURN and event.mod == pg.KMOD_LSHIFT:
+            elif event.key == K_RETURN and event.mod == KMOD_LSHIFT:
                 self.value += '\n'
                 processed = True
             elif event.key:
@@ -140,3 +147,44 @@ def setFocus(elem):
     else:
         focusedElement = None
         elem.color = (255, 255, 255)
+
+def toggleFullscreen():
+    if display.get_window_size() == (WIDTH, HEIGHT):
+        display.set_mode((displayInfo.current_w, displayInfo.current_h), FULLSCREEN)
+        #mainWindow.rect.width = displayInfo.current_w - 40
+        #mainWindow.rect.height = displayInfo.current_h - 70
+    else:
+        display.set_mode((WIDTH, HEIGHT))
+        #mainWindow.rect.width = WIDTH - 40
+        #mainWindow.rect.height = HEIGHT - 70
+
+def setupWindow(caption, iconPath):
+    icon = image.load(iconPath).convert_alpha()
+    display.set_icon(icon)
+    display.set_caption(caption)
+
+events = []
+running = False
+runningFunc = lambda: print("No running function was set")
+def launch():
+    global running, events, defferedFuncs
+    running = True
+    while running:
+        screen.fill((0, 0, 0))
+
+        events = event.get()
+        for ev in events:
+            if ev.type == QUIT:
+                running = False
+                break
+
+        runningFunc()
+
+        for func in defferedFuncs:
+            func()
+        defferedFuncs = []
+
+        display.flip()
+        clock.tick(60)
+
+    quit()
