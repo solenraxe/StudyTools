@@ -1,5 +1,3 @@
-from turtle import clone
-
 from pygame import *
 
 init()

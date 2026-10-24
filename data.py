@@ -9,16 +9,7 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-def get_save_path():
-    data_dir = os.path.expanduser("~/.local/share")
-    save_dir = os.path.join(data_dir, "StudyTools")
-    os.makedirs(save_dir, exist_ok=True)
-    return os.path.join(save_dir, "data.json")
-
-save_path = get_save_path()
-if not os.path.exists(save_path):
-    with open(save_path, 'w') as f, open(resource_path('data.json'), 'r') as default_f:
-        f.write(default_f.read())
+save_path = resource_path('data.json')
 
 data = {}
 with open(save_path, 'r') as f:

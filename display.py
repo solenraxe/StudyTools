@@ -139,6 +139,17 @@ class ToDoElement(ui.Element):
 dateText = ui.Text((40, 60), f"{monDate}")
 changeDateNeg = ui.Button((265, 10, 50, 30), "<-", lambda: changeMonDate(-1, "Timetable"))
 changeDatePos = ui.Button((325, 10, 50, 30), "->", lambda: changeMonDate(1, "Timetable"))
+timeSelection = ui.Selector((ui.WIDTH//2 - 175, ui.HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
+durationSelection = ui.Selector((ui.WIDTH//2 + 25, ui.HEIGHT//2 - 45, 150, 30), "Duration: ", [f"{d/2}h" for d in range(1, 11)])
+repeatSelection = ui.Selector((ui.WIDTH//2 - 75, ui.HEIGHT//2 + 75, 165, 30), "Repeat every: ", [t for t in range(30)])
+repeatUnit = ui.Selector((ui.WIDTH//2 + 100, ui.HEIGHT//2 + 75, 75, 30), "", ["days", "weeks", "months", "years"])
+possibleDays = (date(currentDate.year, currentDate.month+1, 1) - date(currentDate.year, currentDate.month, 1)).days
+daySelection = ui.Selector((ui.WIDTH//2 - 65, ui.HEIGHT//2 + 15, 30, 30), "", [d for d in range(1, possibleDays+1)])
+monthSelection = ui.Selector((ui.WIDTH//2 - 15, ui.HEIGHT//2 + 15, 30, 30), "", [m for m in range(1, 13)])
+yearSelection = ui.Selector((ui.WIDTH//2 + 35, ui.HEIGHT//2 + 15, 50, 30), "", [y for y in range(2026, 2101)])
+nameSelection = ui.TextInput((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 105, 150, 30), "Event Name")
+colorSelection = ui.Selector((ui.WIDTH//2 - 250, ui.HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
+quantitySelection = ui.Selector((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 45, 150, 30), "Quantity: ", [i for i in range(1, 20)])
 
 menuElements = []
 menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 25, 150, 30), "Timetable", lambda: launchTimetable()))
@@ -166,17 +177,6 @@ ui.createTab("Timetable", lambda: timeTable(), timeElements)
 
 eventElements = []
 eventElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchTimetable()))
-timeSelection = ui.Selector((ui.WIDTH//2 - 175, ui.HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
-durationSelection = ui.Selector((ui.WIDTH//2 + 25, ui.HEIGHT//2 - 45, 150, 30), "Duration: ", [f"{d/2}h" for d in range(1, 11)])
-repeatSelection = ui.Selector((ui.WIDTH//2 - 75, ui.HEIGHT//2 + 75, 165, 30), "Repeat every: ", [t for t in range(30)])
-repeatUnit = ui.Selector((ui.WIDTH//2 + 100, ui.HEIGHT//2 + 75, 75, 30), "", ["days", "weeks", "months", "years"])
-possibleDays = (date(currentDate.year, currentDate.month+1, 1) - date(currentDate.year, currentDate.month, 1)).days
-daySelection = ui.Selector((ui.WIDTH//2 - 65, ui.HEIGHT//2 + 15, 30, 30), "", [d for d in range(1, possibleDays+1)])
-monthSelection = ui.Selector((ui.WIDTH//2 - 15, ui.HEIGHT//2 + 15, 30, 30), "", [m for m in range(1, 13)])
-yearSelection = ui.Selector((ui.WIDTH//2 + 35, ui.HEIGHT//2 + 15, 50, 30), "", [y for y in range(2026, 2101)])
-nameSelection = ui.TextInput((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 105, 150, 30), "Event Name")
-colorSelection = ui.Selector((ui.WIDTH//2 - 250, ui.HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
-quantitySelection = ui.Selector((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 45, 150, 30), "Quantity: ", [i for i in range(1, 20)])
 eventElements.append(timeSelection)
 eventElements.append(durationSelection)
 eventElements.append(daySelection)
