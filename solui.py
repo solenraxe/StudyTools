@@ -1,3 +1,5 @@
+from turtle import clone
+
 from pygame import *
 
 init()
@@ -9,6 +11,7 @@ dropDownText = font.SysFont("ldfcomicsansbold", 10)
 
 displayInfo = display.Info()
 WIDTH, HEIGHT = 800, 600
+bgColor = (0, 0, 0)
 
 screen = display.set_mode((WIDTH, HEIGHT))
 clock = time.Clock()
@@ -171,22 +174,20 @@ def setFocus(elem):
         focusedElement = None
         elem.color = (255, 255, 255)
 
-def toggleFullscreen():
+def toggleFullscreen(type = "normal"):
+    on = display.get_window_size() != (WIDTH, HEIGHT)
+    if type == "normal":
+        on = display.get_window_size() == (WIDTH, HEIGHT)
+        if on: display.set_mode((displayInfo.current_w, displayInfo.current_h), FULLSCREEN)
+        else: display.set_mode((WIDTH, HEIGHT))
     elements = globalElements+tabElements
-    if display.get_window_size() == (WIDTH, HEIGHT):
-        display.set_mode((displayInfo.current_w, displayInfo.current_h), FULLSCREEN)
-        for elem in elements:
-            elem.rect.x = int(elem.originalCoords[0]/WIDTH*displayInfo.current_w)
-            elem.rect.y = int(elem.originalCoords[1]/HEIGHT*displayInfo.current_h)
-            elem.rect.width = int(elem.originalCoords[2]/WIDTH*displayInfo.current_w)
-            elem.rect.height = int(elem.originalCoords[3]/HEIGHT*displayInfo.current_h)
-    else:
-        for elem in elements:
-            elem.rect.x = elem.originalCoords[0]
-            elem.rect.y = elem.originalCoords[1]
-            elem.rect.width = elem.originalCoords[2]
-            elem.rect.height = elem.originalCoords[3]
-        display.set_mode((WIDTH, HEIGHT))
+    factor1 = (on and displayInfo.current_w/WIDTH) or 1
+    factor2 = (on and displayInfo.current_h/HEIGHT) or 1
+    for elem in elements:
+        elem.rect.x, elem.rect.y = int(elem.originalCoords[0]*factor1), int(elem.originalCoords[1]*factor2)
+        elem.rect.width, elem.rect.height = int(elem.originalCoords[2]*factor1), int(elem.originalCoords[3]*factor2)
+        if hasattr(elem, "onFullScreen"):
+            elem.onFullScreen()
 
 def setupWindow(caption, iconPath):
     icon = image.load(iconPath).convert_alpha()
@@ -204,7 +205,8 @@ def changeTab(tabName):
     if not tabName in tabs: return False
     currentTab = tabName
     tabFunc = tabs[tabName]["function"]
-    tabElements = tabs[tabName]["elems"]
+    tabElements = tabs[tabName]["elems"].copy()
+    toggleFullscreen("stationary")
 
 events = []
 running = False
@@ -212,7 +214,7 @@ def launch():
     global running, events, defferedFuncs
     running = True
     while running:
-        screen.fill((0, 0, 0))
+        screen.fill(bgColor)
 
         events = event.get()
         for ev in events:
