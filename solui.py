@@ -13,7 +13,13 @@ WIDTH, HEIGHT = 800, 600
 screen = display.set_mode((WIDTH, HEIGHT))
 clock = time.Clock()
 
+globalElements = []
 defferedFuncs = []
+tabs = {}
+
+currentTab = "NONE"
+tabFunc = lambda: print("No running function was set")
+tabElements = []
 
 class Element:
     def __init__(self, coords, color = (255, 255, 255), hollow = 0, radius = 0):
@@ -25,6 +31,18 @@ class Element:
 
     def draw(self):
         draw.rect(screen, self.color, self.rect, self.hollow, self.radius)
+
+class Text(Element):
+    def __init__(self, coords, text, font = comicSans, color = (255, 255, 255)):
+        self.text = text
+        self.font = font
+        self.textSurface = self.font.render(self.text, True, color)
+        super().__init__(coords + (self.textSurface.width, self.textSurface.height))
+
+    def draw(self):
+        self.textSurface = self.font.render(self.text, True, self.color)
+        textRect = self.textSurface.get_rect(center=self.rect.center)
+        screen.blit(self.textSurface, textRect)
 
 class Button(Element):
     def __init__(self, coords, text, onClick = None, font = comicSans, color = (255, 255, 255)):
@@ -120,6 +138,11 @@ class TextInput(Focusable):
 
     def update(self):
         self.text = self.value
+        render = self.font.render(self.text, True, self.color)
+        self.rect.width = max(self.originalCoords[2], render.width+10)
+        self.rect.height = max(self.originalCoords[3], render.height+5)
+        self.rect.x = self.originalCoords[0] - max(0, render.width//2-self.originalCoords[2]//2+5)
+        self.rect.y = self.originalCoords[1] - max(0, render.height//2-self.originalCoords[2]//2+5)
 
     def handleEvents(self, event):
         processed = False
@@ -149,23 +172,42 @@ def setFocus(elem):
         elem.color = (255, 255, 255)
 
 def toggleFullscreen():
+    elements = globalElements+tabElements
     if display.get_window_size() == (WIDTH, HEIGHT):
         display.set_mode((displayInfo.current_w, displayInfo.current_h), FULLSCREEN)
-        #mainWindow.rect.width = displayInfo.current_w - 40
-        #mainWindow.rect.height = displayInfo.current_h - 70
+        for elem in elements:
+            elem.rect.x = int(elem.originalCoords[0]/WIDTH*displayInfo.current_w)
+            elem.rect.y = int(elem.originalCoords[1]/HEIGHT*displayInfo.current_h)
+            elem.rect.width = int(elem.originalCoords[2]/WIDTH*displayInfo.current_w)
+            elem.rect.height = int(elem.originalCoords[3]/HEIGHT*displayInfo.current_h)
     else:
+        for elem in elements:
+            elem.rect.x = elem.originalCoords[0]
+            elem.rect.y = elem.originalCoords[1]
+            elem.rect.width = elem.originalCoords[2]
+            elem.rect.height = elem.originalCoords[3]
         display.set_mode((WIDTH, HEIGHT))
-        #mainWindow.rect.width = WIDTH - 40
-        #mainWindow.rect.height = HEIGHT - 70
 
 def setupWindow(caption, iconPath):
     icon = image.load(iconPath).convert_alpha()
     display.set_icon(icon)
     display.set_caption(caption)
 
+def createTab(tabName, tabFunc, tabElems):
+    tabs[tabName] = {"function":tabFunc, "elems":tabElems}
+
+def deleteTab(tabName):
+    tabs[tabName] = None
+
+def changeTab(tabName):
+    global currentTab, tabFunc, tabElements
+    if not tabName in tabs: return False
+    currentTab = tabName
+    tabFunc = tabs[tabName]["function"]
+    tabElements = tabs[tabName]["elems"]
+
 events = []
 running = False
-runningFunc = lambda: print("No running function was set")
 def launch():
     global running, events, defferedFuncs
     running = True
@@ -177,8 +219,16 @@ def launch():
             if ev.type == QUIT:
                 running = False
                 break
+            elif ev.type == MOUSEBUTTONDOWN and ev.button == 1:
+                for elem in globalElements + tabElements:
+                    if hasattr(elem, "clickable"): elem.checkClick(ev.pos)
+            elif ev.type == KEYDOWN and ev.key == K_F11:
+                toggleFullscreen()
 
-        runningFunc()
+        for elem in globalElements + tabElements:
+            elem.draw()
+
+        if tabFunc: tabFunc()
 
         for func in defferedFuncs:
             func()

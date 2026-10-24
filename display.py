@@ -91,6 +91,9 @@ class TimetableElement(ui.Element):
     def draw(self):
         ui.draw.rect(ui.screen, self.color, self.rect, self.hollow)
         ui.draw.rect(ui.screen, (255, 255, 255), self.rect, 2)
+
+        self.xText = self.rect.x + 10
+        self.yText = self.rect.y + self.rect.height//2 - self.labelText.get_height()//2
         ui.screen.blit(self.labelText, (self.xText, self.yText))
 
     def checkClick(self, pos):
@@ -129,23 +132,44 @@ class ToDoElement(ui.Element):
         self.button.draw()
         ui.screen.blit(self.text, (self.rect.x + 60, self.rect.y))
 
-globalElements = []
+dateText = ui.Text((40, 60), f"{monDate}")
+changeDateNeg = ui.Button((265, 10, 50, 30), "<-", lambda: changeMonDate(-1, "Timetable"))
+changeDatePos = ui.Button((325, 10, 50, 30), "->", lambda: changeMonDate(1, "Timetable"))
+
 menuElements = []
+menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 25, 150, 30), "Timetable", lambda: launchTimetable()))
+menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2 + 25, 150, 30), "To Do List", lambda: launchToDoList()))
+menuElements.append(ui.Text((ui.WIDTH//2, ui.HEIGHT//2-100, 0, 30), "Tools List:"))
+ui.createTab("Menu", None, menuElements)
+
 timeElements = []
+timeElements.append(dateText)
+timeElements.append(changeDateNeg)
+timeElements.append(changeDatePos)
+timeElements.append(ui.Button((385, 10, 150, 30), "Add Event", lambda: launchAddEvent()))
+timeElements.append(ui.Button((545, 10, 75, 30), "Save", lambda: ui.defferedFuncs.append(lambda: printScreen())))
+def timeTable():
+    for i, day in enumerate(weekDays):
+        weekText = ui.smallerText.render(day, True, (255, 255, 255))
+        ui.screen.blit(weekText, (120 + 95 * i, 85))
+        ui.draw.line(ui.screen, (255, 255, 255), (90 + 95*i, 122), (90 + 95*i, 529), 2)
+    ui.draw.line(ui.screen, (255, 255, 255), (90 + 95*7, 122), (90 + 95*7, 529), 2)
+    for i, time in enumerate(times):
+        timeText = ui.smallerText.render(time, True, (255, 255, 255))
+        ui.screen.blit(timeText, (50, 110 + 34*i))
+        if i%2 == 0:
+            ui.draw.line(ui.screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (755, 110 + 34*i + txtH//2), 2)
+
+    dateText.text = f"{monDate}"
+ui.createTab("Timetable", lambda: timeTable(), timeElements)
+
 eventElements = []
 toDoElements = []
 taskElements = []
 
-globalElements.append(ui.Button((20, 10, 150, 30), "Fullscreen", lambda: ui.toggleFullscreen()))
-globalElements.append(ui.Button((180, 10, 75, 30), "Menu", lambda: launchMenu()))
-globalElements.append(mainWindow)
-menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 50, 150, 30), "Timetable", lambda: launchTimetable()))
-menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2, 150, 30), "To Do List", lambda: launchToDoList()))
-menuElements.append(ui.Button((ui.WIDTH//2 - 75, ui.HEIGHT//2 + 50, 150, 30), "Quizz", lambda: launchQuizz()))
-launchAddButton = ui.Button((385, 10, 150, 30), "Add Event", lambda: launchAddEvent())
-changeDateNeg = ui.Button((265, 10, 50, 30), "<-", lambda: changeMonDate(-1, "Timetable"))
-changeDatePos = ui.Button((325, 10, 50, 30), "->", lambda: changeMonDate(1, "Timetable"))
-printScreenBtn = ui.Button((545, 10, 75, 30), "Save", lambda: ui.defferedFuncs.append(lambda: printScreen()))
+ui.globalElements.append(ui.Button((20, 10, 150, 30), "Fullscreen", lambda: ui.toggleFullscreen()))
+ui.globalElements.append(ui.Button((180, 10, 75, 30), "Menu", lambda: launchMenu()))
+ui.globalElements.append(mainWindow)
 eventElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchTimetable()))
 
 timeSelection = ui.Selector((ui.WIDTH//2 - 175, ui.HEIGHT//2 - 45, 150, 30), "Time: ", [t for t in times])
@@ -162,6 +186,10 @@ nameSelection = ui.TextInput((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 105, 150, 30), "E
 colorSelection = ui.Selector((ui.WIDTH//2 - 250, ui.HEIGHT//2 + 75, 150, 30), "Color: ", [c for c in colors])
 quantitySelection = ui.Selector((ui.WIDTH//2 - 75, ui.HEIGHT//2 - 45, 150, 30), "Quantity: ", [i for i in range(1, 20)])
 
+
+header = ui.Text((ui.WIDTH//2, 100, ui.WIDTH, 30), "To do")
+listRect = ui.Element((200, 130, 400, 400), hollow=2, radius=5)
+
 eventElements.append(timeSelection)
 eventElements.append(durationSelection)
 eventElements.append(daySelection)
@@ -173,9 +201,6 @@ eventElements.append(repeatSelection)
 eventElements.append(repeatUnit)
 
 launchAddTButton = ui.Button((385, 10, 150, 30), "Add Task", lambda: launchAddTask())
-toDoElements.append(launchAddTButton)
-toDoElements.append(changeDateNeg)
-toDoElements.append(changeDatePos)
 
 taskElements.append(nameSelection)
 taskElements.append(daySelection)
@@ -184,40 +209,6 @@ taskElements.append(yearSelection)
 taskElements.append(quantitySelection)
 taskElements.append(ui.Button((265, 10, 100, 30), "Back", lambda: launchToDoList()))
 
-def mainMenu():
-    for event in ui.events:
-        if event.type == ui.MOUSEBUTTONDOWN and event.button == 1:
-            for element in globalElements + menuElements:
-                if hasattr(element, "clickable"): element.checkClick(event.pos)
-
-    header = ui.comicSans.render("Tools List:", True, (255, 255, 255))
-    ui.screen.blit(header, (ui.WIDTH//2 - header.width//2, ui.HEIGHT//2 - 100))
-
-    for element in menuElements + globalElements:
-        element.draw()
-
-def timeTable():
-    for event in ui.events:
-        if event.type == ui.MOUSEBUTTONDOWN and event.button == 1:
-            for element in timeElements + globalElements:
-                if hasattr(element, "clickable"): element.checkClick(event.pos)
-
-    for i, day in enumerate(weekDays):
-        weekText = ui.smallerText.render(day, True, (255, 255, 255))
-        ui.screen.blit(weekText, (120 + 95 * i, 85))
-        ui.draw.line(ui.screen, (255, 255, 255), (90 + 95*i, 122), (90 + 95*i, 529), 2)
-    ui.draw.line(ui.screen, (255, 255, 255), (90 + 95*7, 122), (90 + 95*7, 529), 2)
-    for i, time in enumerate(times):
-        timeText = ui.smallerText.render(time, True, (255, 255, 255))
-        ui.screen.blit(timeText, (50, 110 + 34*i))
-        if i%2 == 0:
-            ui.draw.line(ui.screen, (255, 255, 255), (90, 110 + 34*i + txtH//2), (755, 110 + 34*i + txtH//2), 2)
-
-    ui.screen.blit(ui.comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
-
-    for element in timeElements + globalElements:
-        element.draw()
-
 def addEvent(context):
     for event in ui.events:
         processed = False
@@ -225,7 +216,7 @@ def addEvent(context):
         if processed: continue
 
         if event.type == ui.MOUSEBUTTONDOWN and event.button == 1:
-            for element in eventElements + globalElements:
+            for element in eventElements:
                 if hasattr(element, "clickable"): element.checkClick(event.pos)
         elif event.type == ui.KEYDOWN:
             if event.key == ui.K_RETURN:
@@ -250,28 +241,22 @@ def addEvent(context):
                     data.deleteEvent(context)
                 launchTimetable()
 
-    for element in eventElements + globalElements:
+    for element in eventElements:
         element.draw()
 
 def toDoList():
     global scroll
     for event in ui.events:
         if event.type == ui.MOUSEBUTTONDOWN and event.button == 1:
-            for element in toDoElements + globalElements:
+            for element in toDoElements:
                 if hasattr(element, "clickable"): element.checkClick(event.pos)
         elif event.type == ui.MOUSEWHEEL:
             scroll = max(0, scroll - 1 * (event.y//1))
             launchToDoList(scroll)
 
-    ui.screen.blit(ui.comicSans.render(f"{monDate}", True, (255, 255, 255)), (40, 60))
+    dateText.text = f"{monDate}"
 
-    header = ui.comicSans.render("To do:", True, (255, 255, 255))
-    ui.screen.blit(header, (ui.WIDTH//2 - header.get_width()//2, 100))
-
-    listRect = ui.Rect(200, 130, 400, 400)
-    ui.draw.rect(ui.screen, (255, 255, 255), listRect, 2, 5)
-
-    for element in toDoElements + globalElements:
+    for element in toDoElements:
         element.draw()
 
 def addTask(ctx):
@@ -282,7 +267,7 @@ def addTask(ctx):
 
         elif event.type == ui.MOUSEBUTTONDOWN:
             if event.button == 1:
-                for element in globalElements + taskElements:
+                for element in taskElements:
                     if hasattr(element, "clickable"): element.checkClick(event.pos)
         elif event.type == ui.KEYDOWN:
             if event.key == ui.K_RETURN:
@@ -300,27 +285,16 @@ def addTask(ctx):
             elif event.key == ui.K_TAB:
                 launchToDoList()
 
-    for element in globalElements + taskElements:
-        element.draw()
-
-def quizz():
-    for event in ui.events:
-        if event.type == ui.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                for element in globalElements:
-                    if hasattr(element, "clickable"): element.checkClick(event.pos)
-
-    for element in globalElements:
+    for element in taskElements:
         element.draw()
 
 def launchMenu():
-    ui.runningFunc = lambda: mainMenu()
+    ui.changeTab("Menu")
 
 def launchTimetable():
-    global timeElements
     changeDateNeg.onClick = lambda: changeMonDate(-1, "Timetable")
     changeDatePos.onClick = lambda: changeMonDate(1, "Timetable")
-    timeElements = [launchAddButton, changeDateNeg, changeDatePos, printScreenBtn]
+    ui.changeTab("Timetable")
     timetableData = data.getData("Timetable")
     for event in timetableData["Repeated"]:
         year, month, day = event["Date"]
@@ -328,7 +302,7 @@ def launchTimetable():
         while 0 <= dDate < 7:
             eventRect = ui.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
             eventObject = TimetableElement(eventRect, event["Label"], event, event["Color"])
-            timeElements.append(eventObject)
+            ui.tabElements.append(eventObject)
             dDate += event["Repeat"]
     for event in timetableData["Temporary"]:
         year, month, day = event["Date"]
@@ -338,9 +312,7 @@ def launchTimetable():
         elif dDate < 7:
             eventRect = ui.Rect(90 + 95*dDate, 110 + txtH//2 + 34*(event["Time"] - 8), 95, 34*event["Duration"])
             eventObject = TimetableElement(eventRect, event["Label"], event, event["Color"])
-            timeElements.append(eventObject)
-
-    ui.runningFunc = lambda: timeTable()
+            ui.tabElements.append(eventObject)
 
 def restituteEventFromContext(context):
     year, month, day = context["Date"]
@@ -364,7 +336,7 @@ def launchToDoList(skip = 0):
     global toDoElements
     changeDateNeg.onClick = lambda: changeMonDate(-1, "ToDoList")
     changeDatePos.onClick = lambda: changeMonDate(1, "ToDoList")
-    toDoElements = [launchAddTButton, changeDateNeg, changeDatePos]
+    toDoElements = [launchAddTButton, changeDateNeg, changeDatePos, dateText, header, listRect]
     toDoData = data.getData("To Do List")
     acceptedTasks = []
     for task in toDoData:
@@ -401,8 +373,5 @@ def launchAddTask(ctx = "New"):
         restituteTaskFromContext(ctx)
     ui.runningFunc = lambda: addTask(ctx)
 
-def launchQuizz():
-    ui.runningFunc = lambda: quizz()
-
-ui.runningFunc = lambda: mainMenu()
+ui.changeTab("Menu")
 ui.launch()
