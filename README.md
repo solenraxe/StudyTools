@@ -2,7 +2,6 @@ SUPPORTED OS : Windows & Linux
 | File | OS | Architecture |
 |-------|-------|--------------------|
 | StudyTools-Windows.zip | Windows | x86_64 |
-|-------|-------|--------------------|
 | StudyTools-Linux.zip | Linux | x86_64 |
 
 TECH STACK:
